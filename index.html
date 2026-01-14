@@ -24,7 +24,7 @@
 </head>
 <body>
 
-<canvas id="game" width="320" height="480"></canvas>
+<canvas id="game" width="400" height="600"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
@@ -49,7 +49,7 @@ let score = 0;
 // === PHYSICS ===
 const gravity = 0.5;
 const jumpStrength = -7;
-const pipeGap = 130;
+const pipeGap = 110;
 const pipeWidth = 40;
 const pipeSpeed = 2;
 
@@ -298,6 +298,13 @@ function drawText() {
       ctx.fillText("IMAGINE WHAT WE", canvas.width / 2, 260);
       ctx.fillStyle = "#fff";
       ctx.fillText("CAN BUILD TOGETHER", canvas.width / 2, 280);
+
+      ctx.fillStyle = COLORS.purpleMain;
+      ctx.fillText("WILL YOU BE MY", canvas.width / 2, 310);
+
+      ctx.fillStyle = COLORS.yellowSoft;
+      ctx.fillText("VALENTINE?", canvas.width / 2, 330);
+
     } else {
       ctx.font = "12px 'Press Start 2P'";
       ctx.fillStyle = COLORS.purpleMain;
