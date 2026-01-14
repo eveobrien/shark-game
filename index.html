@@ -111,6 +111,24 @@ document.addEventListener("keydown", e => {
 });
 
 
+document.addEventListener("keydown", (e) => {
+  if (!DEV_MODE) return;
+
+  // Press V to instantly test the full sequence
+  if (e.code === "KeyV") {
+    showSecretMessage = true;
+    gameState = "freeze";
+    freezeTimer = 0;
+    transitionOffset = 0;
+    fadeAlpha = 0;
+  }
+
+  // Press B to jump straight to the Valentine screen
+  if (e.code === "KeyB") {
+    gameState = "valentine";
+  }
+});
+
 
 // === VALENTINE BUTTONS (centered) ===
 function getValentineButtons() {
