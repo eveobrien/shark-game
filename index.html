@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <title>Flappy Shark</title>
+
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
   <style>
     body {
       margin: 0;
@@ -13,16 +15,16 @@
       align-items: center;
       height: 100vh;
     }
+
     canvas {
       border: 4px solid #6f4fa3;
       image-rendering: pixelated;
-      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-<canvas id="game" width="400" height="600"></canvas>
+<canvas id="game" width="800" height="1000"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
@@ -31,18 +33,25 @@ ctx.imageSmoothingEnabled = false;
 
 // === COLORS ===
 const COLORS = {
-  purple: "#9b7bd3",
+  purpleMain: "#9b7bd3",
   purpleDark: "#6f4fa3",
-  yellow: "#f2d16b",
-  bg: "#1a1429"
+  redCoral: "#7a2b3a",
+  redCoralDark: "#5b1e2d",
+  yellowSoft: "#f2d16b",
+  yellowGold: "#d6b85a"
 };
 
 // === GAME STATE ===
 let gameState = "start";
 let frame = 0;
 let score = 0;
+
 let freezeTimer = 0;
-let transitionY = 0;
+let transitionOffset = 0;
+let fadeAlpha = 0;
+
+let sparkles = [];
+
 
 // === PHYSICS ===
 const gravity = 0.5;
@@ -52,167 +61,409 @@ const pipeWidth = 40;
 const pipeSpeed = 2;
 
 // === SHARK ===
-const shark = { x: 80, y: 300, v: 0 };
+const shark = {
+  x: 60,
+  y: canvas.height / 2,
+  size: 16,
+  velocity: 0
+};
 
-// === GHOST ===
+let pipes = [];
+
+// === BACKGROUND ===
+let stars = [];
+let bubbles = [];
+
+// === GHOST + SECRET ===
+let currentRunPath = [];
 let ghostPath = JSON.parse(localStorage.getItem("ghostPath")) || [];
-let currentRun = [];
 let bestScore = Number(localStorage.getItem("bestScore")) || 0;
+let secretUnlocked = localStorage.getItem("secretUnlocked") === "true";
+let showSecretMessage = false;
+
+// === INIT BACKGROUND ===
+for (let i = 0; i < 40; i++) {
+  stars.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    speed: Math.random() * 0.25 + 0.1
+  });
+}
+
+for (let i = 0; i < 15; i++) {
+  bubbles.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 3 + 2,
+    speed: Math.random() * 0.35 + 0.2
+  });
+}
 
 // === INPUT ===
 document.addEventListener("keydown", e => {
-  if (e.code === "Space" && gameState === "playing") {
-    shark.v = jumpStrength;
+  if (e.code === "Space") {
+    if (gameState === "start") resetGame();
+    else if (gameState === "playing") shark.velocity = jumpStrength;
+    else if (gameState === "gameover") gameState = "start";
   }
-  if (e.code === "Space" && gameState === "start") reset();
 });
 
-// === CLICK (VALENTINE BUTTONS) ===
-canvas.addEventListener("click", () => {
-  if (gameState === "valentine") {
-    gameState = "accepted";
-  }
+
+// === VALENTINE CLICK ===
+canvas.addEventListener("click", (e) => {
+  if (gameState !== "valentine") return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // YES buttons hitbox
+ if (
+  y > 320 && y < 350 &&
+  (
+    (x > 80 && x < 150) ||
+    (x > 170 && x < 240)
+  )
+) {
+  spawnSparkles(x, y);
+  gameState = "accepted";
+}
+
 });
+
+
 
 // === RESET ===
-function reset() {
-  shark.y = 300;
-  shark.v = 0;
+function resetGame() {
+  shark.y = canvas.height / 2;
+  shark.velocity = 0;
   pipes = [];
-  frame = 0;
   score = 0;
-  currentRun = [];
-  transitionY = 0;
+  frame = 0;
+  currentRunPath = [];
+  showSecretMessage = false;
   gameState = "playing";
 }
 
-// === PIPES ===
-let pipes = [];
-function spawnPipe() {
-  const top = Math.random() * 250 + 50;
-  pipes.push({ x: canvas.width, top });
+// === CORAL CREATION ===
+function createPipe() {
+  const topHeight = Math.floor(Math.random() * (canvas.height - pipeGap - 80) + 40);
+
+  pipes.push({
+    x: canvas.width,
+    top: topHeight,
+    bottom: topHeight + pipeGap,
+    swaySeed: Math.random() * Math.PI * 2,
+    polyps: Array.from({ length: 6 }, () => Math.random())
+  });
 }
 
 // === UPDATE ===
 function update() {
   frame++;
+  updateBackground();
 
   if (gameState === "playing") {
-    shark.v += gravity;
-    shark.y += shark.v;
-    currentRun.push(shark.y);
+    shark.velocity += gravity;
+    shark.y += shark.velocity;
+    currentRunPath.push({ y: shark.y });
 
-    if (frame % 120 === 0) spawnPipe();
+    if (frame % 120 === 0) createPipe();
 
-    pipes.forEach(p => p.x -= pipeSpeed);
-    pipes = pipes.filter(p => p.x + pipeWidth > 0);
+    pipes.forEach(pipe => {
+      pipe.x -= pipeSpeed;
 
-    pipes.forEach(p => {
+      if (!pipe.scored && pipe.x + pipeWidth < shark.x) {
+        score++;
+        pipe.scored = true;
+      }
+
       if (
-        shark.x < p.x + pipeWidth &&
-        shark.x + 16 > p.x &&
-        (shark.y < p.top || shark.y > p.top + pipeGap)
+        shark.x + shark.size > pipe.x &&
+        shark.x < pipe.x + pipeWidth &&
+        (shark.y < pipe.top || shark.y + shark.size > pipe.bottom)
       ) endGame();
     });
+
+    pipes = pipes.filter(p => p.x + pipeWidth > 0);
+
+    if (shark.y < 0 || shark.y + shark.size > canvas.height) endGame();
   }
 
-  if (gameState === "freeze") {
-    freezeTimer++;
-    if (freezeTimer > 60) gameState = "transition";
-  }
-
-  if (gameState === "transition") {
-    transitionY += 6;
-    if (transitionY >= canvas.height) gameState = "valentine";
-  }
+  // === UPDATE SPARKLES ===
+  sparkles.forEach(s => {
+    s.x += s.vx;
+    s.y += s.vy;
+    s.life--;
+  });
+  sparkles = sparkles.filter(s => s.life > 0);
 }
+
 
 // === END GAME ===
 function endGame() {
+  const hadGhost = ghostPath.length > 0;
+
   if (score > bestScore) {
     bestScore = score;
-    ghostPath = currentRun;
-    localStorage.setItem("ghostPath", JSON.stringify(ghostPath));
+    ghostPath = currentRunPath;
     localStorage.setItem("bestScore", bestScore);
+    localStorage.setItem("ghostPath", JSON.stringify(ghostPath));
+
+    if (hadGhost && !secretUnlocked) {
+      secretUnlocked = true;
+      showSecretMessage = true;
+      localStorage.setItem("secretUnlocked", "true");
+
+      gameState = "freeze";
+      freezeTimer = 0;
+      return;
+    }
   }
-  freezeTimer = 0;
-  gameState = "freeze";
+
+  gameState = "gameover";
 }
 
-// === DRAW ===
-function drawShark() {
-  ctx.fillStyle = COLORS.purple;
-  ctx.fillRect(shark.x, shark.y, 16, 8);
-  ctx.fillRect(shark.x + 4, shark.y - 4, 8, 4);
-}
 
-function drawPipes() {
-  ctx.fillStyle = "#7a2b3a";
-  pipes.forEach(p => {
-    ctx.fillRect(p.x, 0, pipeWidth, p.top);
-    ctx.fillRect(p.x, p.top + pipeGap, pipeWidth, canvas.height);
+// === BACKGROUND ===
+function updateBackground() {
+  stars.forEach(s => {
+    s.y += s.speed;
+    if (s.y > canvas.height) s.y = 0;
+  });
+
+  bubbles.forEach(b => {
+    b.y -= b.speed;
+    if (b.y < 0) b.y = canvas.height;
   });
 }
 
-function drawHeart(x, y, pulse) {
-  ctx.fillStyle = COLORS.yellow;
-  const s = pulse ? 6 : 5;
-  ctx.fillRect(x, y, s, s);
-  ctx.fillRect(x + s + 2, y, s, s);
-  ctx.fillRect(x + 2, y + s, s + 2, s);
-}
-
-function drawValentineScreen() {
-  ctx.fillStyle = COLORS.bg;
+function drawBackground() {
+  const cycle = Math.sin(frame * 0.002) * 0.5 + 0.5;
+  ctx.fillStyle = `rgb(${32 + cycle*25},${24 + cycle*20},${60 + cycle*45})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const pulse = Math.sin(frame * 0.1) > 0;
-  drawHeart(190, 150, pulse);
+  ctx.fillStyle = COLORS.yellowSoft;
+  stars.forEach(s => ctx.fillRect(s.x, s.y, 2, 2));
 
-  ctx.font = "12px 'Press Start 2P'";
-  ctx.fillStyle = COLORS.purple;
-  ctx.fillText("WILL YOU BE MY", 200, 240);
-  ctx.fillStyle = COLORS.yellow;
-  ctx.fillText("VALENTINE?", 200, 270);
+  ctx.fillStyle = "rgba(200,210,255,0.5)";
+  bubbles.forEach(b => ctx.fillRect(b.x, b.y, b.size, b.size));
+}
+
+// === SHARK ===
+function drawPixelShark(x, y, a = 1) {
+  ctx.save();
+  ctx.globalAlpha = a;
 
   ctx.fillStyle = COLORS.purpleDark;
-  ctx.fillRect(120, 330, 70, 30);
-  ctx.fillRect(210, 330, 70, 30);
+  ctx.fillRect(x - 1, y + 1, 18, 10);
 
-  ctx.fillStyle = "#fff";
-  ctx.font = "8px 'Press Start 2P'";
-  ctx.fillText("YES", 155, 350);
-  ctx.fillText("YES", 245, 350);
+  ctx.fillStyle = COLORS.purpleMain;
+  ctx.fillRect(x, y, 16, 8);
+  ctx.fillRect(x + 2, y - 4, 12, 4);
+
+  ctx.fillStyle = COLORS.purpleDark;
+  ctx.fillRect(x + 6, y - 8, 4, 4);
+  ctx.fillRect(x - 4, y + 2, 4, 4);
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x + 12, y + 2, 2, 2);
+
+  ctx.restore();
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+// === CORAL DRAWING ===
+function drawCoral(pipe, y, height, flip = 1) {
+  const sway = Math.sin(frame * 0.02 + pipe.swaySeed) * 2;
+  const x = pipe.x + sway * flip;
 
-  if (gameState !== "valentine" && gameState !== "accepted") {
-    ctx.save();
-    ctx.translate(0, -transitionY);
-    drawPipes();
-    drawShark();
-    ctx.restore();
+  ctx.fillStyle = COLORS.redCoral;
+  ctx.fillRect(x, y, pipeWidth, height);
+
+  // bumps
+  for (let i = 0; i < height; i += 14) {
+    ctx.fillRect(x - 4, y + i, 4, 8);
+    ctx.fillRect(x + pipeWidth, y + i + 4, 4, 8);
   }
 
-  if (gameState === "valentine") drawValentineScreen();
+  // shadow
+  ctx.fillStyle = COLORS.redCoralDark;
+  ctx.fillRect(x + pipeWidth - 4, y, 4, height);
 
-  if (gameState === "accepted") {
-    ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = COLORS.yellow;
+  // tiny yellow polyps
+  ctx.fillStyle = COLORS.yellowSoft;
+  pipe.polyps.forEach((p, i) => {
+    if (Math.sin(frame * 0.05 + p * 10) > 0.6) {
+      ctx.fillRect(x + (i * 6) % pipeWidth, y + (i * 20) % height, 2, 2);
+    }
+  });
+}
+
+// === GHOST ===
+function drawGhost() {
+  if (gameState === "playing" && ghostPath.length > frame) {
+    drawPixelShark(shark.x, ghostPath[frame].y, 0.25);
+  }
+}
+
+// === DRAW ===
+function drawPipes() {
+  pipes.forEach(p => {
+    drawCoral(p, 0, p.top, 1);
+    drawCoral(p, p.bottom, canvas.height - p.bottom, -1);
+  });
+}
+
+function drawText() {
+  ctx.textAlign = "center";
+
+  if (gameState === "start") {
     ctx.font = "12px 'Press Start 2P'";
-    ctx.fillText("❤️ SHE SAID YES ❤️", 200, 300);
+    ctx.fillStyle = COLORS.purpleMain;
+    ctx.fillText("FLAPPY SHARK", canvas.width / 2, 180);
+
+    ctx.font = "8px 'Press Start 2P'";
+    ctx.fillStyle = COLORS.yellowSoft;
+    ctx.fillText("IT REMEMBERS YOU", canvas.width / 2, 220);
+    ctx.fillText("PRESS SPACE", canvas.width / 2, 250);
+  }
+
+  if (gameState === "playing") {
+    ctx.font = "12px 'Press Start 2P'";
+    ctx.fillStyle = COLORS.yellowGold;
+    ctx.fillText(score, canvas.width / 2, 40);
+  }
+
+  if (gameState === "freeze") {
+  freezeTimer++;
+
+  if (freezeTimer > 180) { // ~3 seconds
+    gameState = "transition";
   }
 }
+
+if (gameState === "transition") {
+  transitionOffset += 4;
+  fadeAlpha += 0.02;
+
+  if (fadeAlpha >= 1) {
+    gameState = "valentine";
+  }
+}
+
+
+  if (gameState === "gameover") {
+    ctx.font = "8px 'Press Start 2P'";
+    ctx.fillStyle = "#fff";
+
+    if (showSecretMessage) {
+      ctx.fillText("IF YOU CAN OUTSWIM", canvas.width / 2, 220);
+      ctx.fillText("YOUR PAST,", canvas.width / 2, 240);
+      ctx.fillStyle = COLORS.yellowSoft;
+      ctx.fillText("IMAGINE WHAT WE", canvas.width / 2, 260);
+      ctx.fillStyle = "#fff";
+      ctx.fillText("CAN BUILD TOGETHER", canvas.width / 2, 280);
+    } else {
+      ctx.font = "12px 'Press Start 2P'";
+      ctx.fillStyle = COLORS.purpleMain;
+      ctx.fillText("AGAIN?", canvas.width / 2, 240);
+    }
+  }
+}
+
+// spawn sparkles
+
+function spawnSparkles(x, y) {
+  for (let i = 0; i < 12; i++) {
+    sparkles.push({
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      life: 30
+    });
+  }
+}
+
 
 // === LOOP ===
+function draw() {
+  ctx.save();
+
+  if (gameState === "transition") {
+    ctx.translate(0, -transitionOffset);
+  }
+
+  drawBackground();
+  drawPipes();
+  drawGhost();
+  drawPixelShark(shark.x, shark.y);
+  drawText();
+
+  ctx.restore();
+
+  if (gameState === "transition") {
+    ctx.fillStyle = `rgba(26,20,41,${fadeAlpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (gameState === "valentine") {
+    drawValentineScreen();
+  }
+
+  // === DRAW SPARKLES ===
+ctx.fillStyle = COLORS.yellowSoft;
+sparkles.forEach(s => {
+  ctx.fillRect(s.x, s.y, 2, 2);
+});
+
+}
+
+
 function loop() {
   update();
   draw();
   requestAnimationFrame(loop);
 }
+
+
+function drawValentineScreen() {
+  ctx.fillStyle = "#1a1429";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const pulse = Math.sin(frame * 0.08) * 2;
+
+  // 💜 Pixel Heart
+  ctx.fillStyle = COLORS.yellowSoft;
+  ctx.fillRect(156, 120, 8 + pulse, 8 + pulse);
+  ctx.fillRect(168, 120, 8 + pulse, 8 + pulse);
+  ctx.fillRect(160, 128, 12 + pulse, 8 + pulse);
+
+  // Text
+  ctx.textAlign = "center";
+  ctx.font = "10px 'Press Start 2P'";
+  ctx.fillStyle = COLORS.purpleMain;
+  ctx.fillText("WILL YOU BE MY", canvas.width / 2, 200);
+
+  ctx.fillStyle = COLORS.yellowSoft;
+  ctx.fillText("VALENTINE?", canvas.width / 2, 225);
+
+  // Catherine animation
+  const nameOffset = Math.sin(frame * 0.05) * 3;
+  ctx.fillStyle = COLORS.purpleDark;
+  ctx.fillText("CATHERINE", canvas.width / 2, 265 + nameOffset);
+
+  // Buttons
+  ctx.fillStyle = COLORS.purpleMain;
+  ctx.fillRect(80, 320, 70, 30);
+  ctx.fillRect(170, 320, 70, 30);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "8px 'Press Start 2P'";
+  ctx.fillText("YES", 115, 340);
+  ctx.fillText("YES", 205, 340);
+}
+
 
 loop();
 </script>
