@@ -234,14 +234,25 @@ function update() {
 function endGame() {
   const hadGhost = ghostPath.length > 0;
 
+  // ✅ DEV MODE: always trigger the cinematic when you crash (for testing)
+  if (DEV_MODE) {
+    showSecretMessage = true;       // show the secret lines during freeze
+    gameState = "freeze";
+    freezeTimer = 0;
+    transitionOffset = 0;
+    fadeAlpha = 0;
+    return;
+  }
+
+  // Normal behavior (ship mode)
   if (score > bestScore) {
     bestScore = score;
     ghostPath = currentRunPath;
     localStorage.setItem("bestScore", bestScore);
     localStorage.setItem("ghostPath", JSON.stringify(ghostPath));
 
-    // only trigger the cinematic once: when she beats an existing ghost for the first time
-    if ((DEV_MODE || (hadGhost && !secretUnlocked))) {
+    // Trigger only once: first time she beats an existing ghost
+    if (hadGhost && !secretUnlocked) {
       secretUnlocked = true;
       showSecretMessage = true;
       localStorage.setItem("secretUnlocked", "true");
@@ -256,6 +267,7 @@ function endGame() {
 
   gameState = "gameover";
 }
+
 
 // === BACKGROUND ===
 function updateBackground() {
