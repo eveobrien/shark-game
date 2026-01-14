@@ -11,6 +11,18 @@ const COLORS={
   bg:"#1a1429",
   pinkSparkle:"#ff4fd8", pinkSparkleLight:"#ff8fe7",
   blueShark:"#8fd3ff", white:"#ffffff",
+
+  // More "real" shark ramp + softer romance tones
+  sharkDark:  "#355b7a",
+  sharkMid:   "#5fa0c6",
+  sharkLight: "#a8ddff",
+  sharkBelly: "#f3fbff",
+
+  sparklePink: "#ff5cd6",
+  sparklePink2:"#ff9ae8",
+  heartPink:   "#ff7bcf",
+  heartLight:  "#ffd3ef",
+
 };
 
 let gameState="start"; // start|playing|gameover|freeze|transition|valentine|celebrate|kiss|final
@@ -153,14 +165,53 @@ function drawBackground(){
   ctx.fillStyle="rgba(200,210,255,0.5)"; bubbles.forEach(b=>ctx.fillRect(b.x,b.y,b.size,b.size));
 }
 
-function drawPixelShark(x,y,a=1){
-  ctx.save(); ctx.globalAlpha=a;
-  ctx.fillStyle=COLORS.purpleDark; ctx.fillRect(x-1,y+1,18,10);
-  ctx.fillStyle=COLORS.purpleMain; ctx.fillRect(x,y,16,8); ctx.fillRect(x+2,y-4,12,4);
-  ctx.fillStyle=COLORS.purpleDark; ctx.fillRect(x+6,y-8,4,4); ctx.fillRect(x-4,y+2,4,4);
-  ctx.fillStyle="#000"; ctx.fillRect(x+12,y+2,2,2);
+function drawPixelShark(x, y, a = 1) {
+  ctx.save();
+  ctx.globalAlpha = a;
+
+  // 32x18-ish sprite (more detail)
+  // Outline first
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillRect(x - 2, y + 6, 36, 2); // bottom shadow hint
+
+  // Back (dark)
+  ctx.fillStyle = COLORS.sharkDark;
+  ctx.fillRect(x + 2, y + 2, 28, 10);
+  ctx.fillRect(x + 8, y - 2, 16, 4);
+
+  // Mid tone
+  ctx.fillStyle = COLORS.sharkMid;
+  ctx.fillRect(x + 4, y + 4, 26, 8);
+  ctx.fillRect(x + 10, y, 14, 4);
+
+  // Light highlight + dithering
+  ctx.fillStyle = COLORS.sharkLight;
+  ctx.fillRect(x + 8, y + 4, 16, 4);
+  ctx.fillRect(x + 14, y + 8, 10, 2);
+
+  // Belly
+  ctx.fillStyle = COLORS.sharkBelly;
+  ctx.fillRect(x + 10, y + 10, 16, 3);
+
+  // Fin (top)
+  ctx.fillStyle = COLORS.sharkDark;
+  ctx.fillRect(x + 16, y - 8, 6, 6);
+
+  // Tail
+  ctx.fillStyle = COLORS.sharkMid;
+  ctx.fillRect(x - 6, y + 6, 8, 6);
+  ctx.fillStyle = COLORS.sharkDark;
+  ctx.fillRect(x - 10, y + 4, 4, 4);
+
+  // Eye
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x + 26, y + 7, 2, 2);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x + 27, y + 7, 1, 1);
+
   ctx.restore();
 }
+
 
 function drawCoral(p,y,height,flip=1){
   const sway=Math.sin(frame*0.02+p.swaySeed)*3;
