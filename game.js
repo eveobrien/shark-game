@@ -11,6 +11,10 @@ const COLORS={
   bg:"#1a1429",
   pinkSparkle:"#ff4fd8", pinkSparkleLight:"#ff8fe7",
   blueShark:"#8fd3ff", white:"#ffffff",
+  heartPink: "#ff6fae",
+ heartLight: "#ffd1e6",
+ heartOutline: "rgba(120,40,80,0.9)",
+
 };
 
 let gameState="start"; // start|playing|gameover|freeze|transition|valentine|celebrate|kiss|final

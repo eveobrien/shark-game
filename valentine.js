@@ -190,14 +190,29 @@
     });
   }
 
+ 
   function drawTinyHeart(ctx, x, y, size, C) {
-    const s=Math.max(6,size);
-    ctx.fillStyle=color;
-    ctx.fillRect(x,y,s,s);
-    ctx.fillRect(x+s+2,y,s,s);
-    ctx.fillRect(x+2,y+s,s*2,s);
-    ctx.fillRect(x+4,y+s*2,(s*2)-4,s);
-  }
+  const s = Math.max(8, size); // keep hearts small + crisp
+
+  // Dark outline (1px)
+  ctx.fillStyle = C.heartOutline || "rgba(120,40,80,0.9)";
+  ctx.fillRect(x + 2, y, s - 4, 1);
+  ctx.fillRect(x + 1, y + 1, s - 2, 1);
+  ctx.fillRect(x, y + 2, s, s - 3);
+  ctx.fillRect(x + 1, y + s - 1, s - 2, 1);
+
+  // Main heart fill
+  ctx.fillStyle = C.heartPink || "#ff6fae";
+  ctx.fillRect(x + 2, y + 1, s - 4, 2);
+  ctx.fillRect(x + 1, y + 3, s - 2, s - 5);
+  ctx.fillRect(x + 2, y + s - 3, s - 4, 2);
+
+  // Highlight (top-left)
+  ctx.fillStyle = C.heartLight || "#ffd1e6";
+  ctx.fillRect(x + 3, y + 2, 2, 2);
+  ctx.fillRect(x + 4, y + 4, 2, 2);
+}
+
 
   function drawCuteShark(ctx,C,x,y,dir,scale){
     ctx.save(); ctx.translate(x,y);
