@@ -29,6 +29,9 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
+const DEV_MODE = true;
+
+
 // === COLORS ===
 const COLORS = {
   purpleMain: "#9b7bd3",
@@ -105,18 +108,6 @@ document.addEventListener("keydown", e => {
   if (gameState === "start") resetGame();
   else if (gameState === "playing") shark.velocity = jumpStrength;
   else if (gameState === "gameover") gameState = "start";
-});
-
-
-document.addEventListener("keydown", (e) => {
-  if (e.code === "KeyR") {
-    localStorage.removeItem("secretUnlocked");
-    localStorage.removeItem("ghostPath");
-    localStorage.removeItem("bestScore");
-    // optional: also wipe sparkles/transition state
-    gameState = "start";
-    alert("Dev reset: ghost + best score + secret cleared.");
-  }
 });
 
 
@@ -250,7 +241,7 @@ function endGame() {
     localStorage.setItem("ghostPath", JSON.stringify(ghostPath));
 
     // only trigger the cinematic once: when she beats an existing ghost for the first time
-    if (hadGhost && !secretUnlocked) {
+    if ((DEV_MODE || (hadGhost && !secretUnlocked))) {
       secretUnlocked = true;
       showSecretMessage = true;
       localStorage.setItem("secretUnlocked", "true");
