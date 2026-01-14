@@ -25,8 +25,6 @@
 <canvas id="game" width="400" height="600"></canvas>
 
 <script>
-localStorage.clear();
-
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -66,7 +64,15 @@ document.addEventListener("keydown", e => {
   if (e.code === "Space" && gameState === "playing") {
     shark.v = jumpStrength;
   }
-  if (e.code === "Space" && gameState === "start") reset();
+
+  if (e.code === "Space" && gameState === "start") {
+    reset();
+  }
+
+  // DEV CHEAT — REMOVE BEFORE SENDING 💜
+  if (e.code === "KeyV") {
+    gameState = "freeze";
+  }
 });
 
 // === CLICK (VALENTINE BUTTONS) ===
