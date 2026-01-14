@@ -64,15 +64,7 @@ document.addEventListener("keydown", e => {
   if (e.code === "Space" && gameState === "playing") {
     shark.v = jumpStrength;
   }
-
-  if (e.code === "Space" && gameState === "start") {
-    reset();
-  }
-
-  // DEV CHEAT — REMOVE BEFORE SENDING 💜
-  if (e.code === "KeyV") {
-    gameState = "freeze";
-  }
+  if (e.code === "Space" && gameState === "start") reset();
 });
 
 // === CLICK (VALENTINE BUTTONS) ===
@@ -226,3 +218,4 @@ loop();
 </script>
 </body>
 </html>
+
