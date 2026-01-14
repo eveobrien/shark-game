@@ -41,6 +41,11 @@ const COLORS = {
   yellowSoft: "#f2d16b",
   yellowGold: "#d6b85a",
   bg: "#1a1429",
+  pinkSparkle: "#ff4fd8",
+  pinkSparkleLight: "#ff8fe7",
+  blueShark: "#8fd3ff",
+  white: "#ffffff",
+
 };
 
 // === GAME STATE ===
@@ -55,6 +60,11 @@ let fadeAlpha = 0;
 
 // Sparkles
 let sparkles = [];
+let vHearts = [];
+let vStars = [];
+let vSharks = [];
+
+
 
 // === PHYSICS ===
 const gravity = 0.5;
@@ -231,13 +241,14 @@ function update() {
     }
   }
 
-  if (gameState === "transition") {
-    transitionOffset += 8;
-    fadeAlpha = Math.min(1, fadeAlpha + 0.02);
-    if (fadeAlpha >= 1) {
-      gameState = "valentine";
-    }
+if (gameState === "transition") {
+  transitionOffset += 8;
+  fadeAlpha = Math.min(1, fadeAlpha + 0.02);
+  if (fadeAlpha >= 1) {
+    gameState = "valentine";
+    initValentineParticles();
   }
+}
 
   // === UPDATE SPARKLES ===
   sparkles.forEach(s => {
@@ -441,10 +452,11 @@ function spawnSparkles(x, y) {
   }
 }
 
-function drawSparkles() {
-  ctx.fillStyle = COLORS.yellowSoft;
+function drawSparkles(color = COLORS.yellowSoft) {
+  ctx.fillStyle = color;
   sparkles.forEach(s => ctx.fillRect(s.x, s.y, 2, 2));
 }
+
 
 // === VALENTINE SCREEN ===
 function drawHeart(cx, cy) {
@@ -459,27 +471,143 @@ function drawHeart(cx, cy) {
   ctx.fillRect(cx - (s - 2), cy + (s * 2) - 4, (s * 2) - 4, s);
 }
 
+
+function updateValentineParticles() {
+  // hearts float upward + sway
+  vHearts.forEach(h => {
+    h.y -= h.speed;
+    h.x += Math.sin(frame * h.tw + h.phase) * 0.6 + h.drift;
+
+    if (h.y < -40) {
+      h.y = canvas.height + 40 + Math.random() * 200;
+      h.x = Math.random() * canvas.width;
+    }
+  });
+
+  // sharks swim across + bob
+  vSharks.forEach(s => {
+    s.x += s.speed * s.dir;
+    s.bob += 0.03;
+
+    if (s.dir === 1 && s.x > canvas.width + 60) {
+      s.x = -60 - Math.random() * 200;
+      s.y = 160 + Math.random() * (canvas.height - 260);
+    }
+    if (s.dir === -1 && s.x < -60) {
+      s.x = canvas.width + 60 + Math.random() * 200;
+      s.y = 160 + Math.random() * (canvas.height - 260);
+    }
+  });
+}
+
+function drawTinyHeart(x, y, size, color) {
+  ctx.fillStyle = color;
+  const s = Math.max(4, size);
+
+  // 2 top pixels + one body
+  ctx.fillRect(x, y, s, s);
+  ctx.fillRect(x + s + 2, y, s, s);
+  ctx.fillRect(x + 2, y + s, (s * 2), s);
+  ctx.fillRect(x + 4, y + (s * 2), (s * 2) - 4, s);
+}
+
+function drawTinyShark(x, y, dir) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (dir === -1) {
+    ctx.scale(-1, 1);
+  }
+
+  // white highlight
+  ctx.fillStyle = COLORS.white;
+  ctx.fillRect(2, 2, 14, 6);
+
+  // blue body
+  ctx.fillStyle = COLORS.blueShark;
+  ctx.fillRect(0, 4, 16, 6);
+  ctx.fillRect(4, 0, 10, 4);
+
+  // fin
+  ctx.fillStyle = COLORS.white;
+  ctx.fillRect(8, -4, 4, 4);
+
+  // tail
+  ctx.fillStyle = COLORS.blueShark;
+  ctx.fillRect(-4, 6, 4, 4);
+
+  // eye
+  ctx.fillStyle = "#000";
+  ctx.fillRect(12, 6, 2, 2);
+
+  ctx.restore();
+}
+
+function drawValentineTwinkles() {
+  // stars
+  vStars.forEach(st => {
+    const on = Math.sin(frame * st.tw + st.x * 0.01) > 0.6;
+    if (on) {
+      ctx.fillStyle = COLORS.yellowSoft;
+      ctx.fillRect(st.x, st.y, 2, 2);
+      ctx.fillRect(st.x - 2, st.y, 2, 2);
+      ctx.fillRect(st.x + 2, st.y, 2, 2);
+      ctx.fillRect(st.x, st.y - 2, 2, 2);
+      ctx.fillRect(st.x, st.y + 2, 2, 2);
+    }
+  });
+
+  // pink sparkle dust
+  if (frame % 2 === 0) {
+    for (let i = 0; i < 6; i++) {
+      sparkles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2,
+        life: 18
+      });
+    }
+  }
+}
+
+
+
 function drawValentineScreen() {
+  // Update particles (only while on this screen)
+  updateValentineParticles();
+
+  // Background
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Twinkles / stars / sparkle dust
+  drawValentineTwinkles();
+
+  // Floating hearts
+  vHearts.forEach(h => {
+    const pulse = Math.sin(frame * h.tw + h.phase) > 0.4;
+    drawTinyHeart(h.x, h.y, h.size, pulse ? COLORS.yellowSoft : COLORS.yellowGold);
+  });
+
+  // Tiny sharks swimming (cute + subtle)
+  vSharks.forEach(s => {
+    const bobY = Math.sin(s.bob) * 4;
+    drawTinyShark(s.x, s.y + bobY, s.dir);
+  });
+
+  // Main text
   const cx = canvas.width / 2;
 
-  drawHeart(cx, 170);
-
   ctx.textAlign = "center";
-  ctx.font = "18px 'Press Start 2P'";
+  ctx.font = "22px 'Press Start 2P'";
   ctx.fillStyle = COLORS.purpleMain;
-  ctx.fillText("WILL YOU BE MY", cx, 320);
+  ctx.fillText("CATHERINE,", cx, 280);
 
   ctx.fillStyle = COLORS.yellowSoft;
-  ctx.fillText("VALENTINE?", cx, 360);
+  ctx.fillText("WILL YOU BE MY", cx, 330);
 
-  // Catherine animated (gentle float)
-  const nameOffset = Math.sin(frame * 0.05) * 6;
-  ctx.fillStyle = COLORS.purpleDark;
-  ctx.font = "20px 'Press Start 2P'";
-  ctx.fillText("CATHERINE", cx, 430 + nameOffset);
+  ctx.fillStyle = COLORS.pinkSparkle;
+  ctx.fillText("VALENTINE?", cx, 380);
 
   // Buttons centered
   const { left, right } = getValentineButtons();
@@ -489,13 +617,61 @@ function drawValentineScreen() {
   ctx.fillRect(right.x, right.y, right.w, right.h);
 
   ctx.fillStyle = "#fff";
-  ctx.font = "14px 'Press Start 2P'";
-  ctx.fillText("YES", left.x + left.w / 2, left.y + 33);
-  ctx.fillText("YES", right.x + right.w / 2, right.y + 33);
+  ctx.font = "16px 'Press Start 2P'";
+  ctx.fillText("YES", left.x + left.w / 2, left.y + 34);
+  ctx.fillText("YES", right.x + right.w / 2, right.y + 34);
 
-  // Sparkles on top
-  drawSparkles();
+  // Sparkles on top (pink!)
+  drawSparkles(COLORS.pinkSparkleLight);
 }
+
+
+
+
+function initValentineParticles() {
+  vHearts = [];
+  vStars = [];
+  vSharks = [];
+
+  // Floating hearts
+  for (let i = 0; i < 28; i++) {
+    vHearts.push({
+      x: Math.random() * canvas.width,
+      y: canvas.height + Math.random() * canvas.height,
+      speed: 0.6 + Math.random() * 0.8,
+      drift: (Math.random() - 0.5) * 0.6,
+      phase: Math.random() * Math.PI * 2,
+      size: 6 + Math.floor(Math.random() * 6),
+      tw: Math.random() * 0.08 + 0.03
+    });
+  }
+
+  // Twinkly stars
+  for (let i = 0; i < 60; i++) {
+    vStars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      tw: Math.random() * 0.12 + 0.03
+    });
+  }
+
+  // Tiny swimming sharks
+  for (let i = 0; i < 7; i++) {
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    vSharks.push({
+      dir,
+      x: dir === 1 ? -40 - Math.random() * 200 : canvas.width + 40 + Math.random() * 200,
+      y: 160 + Math.random() * (canvas.height - 260),
+      speed: 0.8 + Math.random() * 1.2,
+      bob: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+
+
+
+
 
 // === MAIN DRAW ===
 function draw() {
@@ -525,18 +701,27 @@ function draw() {
   }
 
   if (gameState === "accepted") {
-    ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.textAlign = "center";
-    ctx.fillStyle = COLORS.yellowSoft;
-    ctx.font = "22px 'Press Start 2P'";
-    ctx.fillText("✨ SHE SAID YES ✨", canvas.width / 2, canvas.height / 2);
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Let sparkles show here too
-    drawSparkles();
-  }
+  // keep some cute motion
+  updateValentineParticles();
+  drawValentineTwinkles();
+  vHearts.forEach(h => drawTinyHeart(h.x, h.y, h.size, COLORS.yellowSoft));
+  vSharks.forEach(s => drawTinyShark(s.x, s.y + Math.sin(s.bob) * 4, s.dir));
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = COLORS.pinkSparkle;
+  ctx.font = "26px 'Press Start 2P'";
+  ctx.fillText("YAYYYYY 💖", canvas.width / 2, canvas.height / 2 - 30);
+
+  ctx.fillStyle = COLORS.yellowSoft;
+  ctx.font = "18px 'Press Start 2P'";
+  ctx.fillText("I'M YOURS.", canvas.width / 2, canvas.height / 2 + 20);
+
+  drawSparkles(COLORS.pinkSparkleLight);
 }
-
+}
 // === LOOP ===
 function loop() {
   update();
