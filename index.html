@@ -107,6 +107,20 @@ document.addEventListener("keydown", e => {
   else if (gameState === "gameover") gameState = "start";
 });
 
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR") {
+    localStorage.removeItem("secretUnlocked");
+    localStorage.removeItem("ghostPath");
+    localStorage.removeItem("bestScore");
+    // optional: also wipe sparkles/transition state
+    gameState = "start";
+    alert("Dev reset: ghost + best score + secret cleared.");
+  }
+});
+
+
+
 // === VALENTINE BUTTONS (centered) ===
 function getValentineButtons() {
   const cx = canvas.width / 2;
