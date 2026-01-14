@@ -74,102 +74,41 @@
     return celebrateT>240;
   };
 
-  Valentine.drawKiss = ({ ctx, canvas, COLORS: C, frame, drawSparkles, spawnSparkles }) => {
-  kissT++;
+  Valentine.drawKiss=({ctx,canvas,COLORS,frame,drawSparkles,spawnSparkles})=>{
+    kissT++;
+    bg(ctx,canvas,COLORS);
+    twinkles(ctx,COLORS,frame);
+    floatingHearts(ctx,COLORS,frame);
 
-  // Background
-  bg(ctx, canvas, C);
-  twinkles(ctx, C, frame);
-  floatingHearts(ctx, C, frame); // now pink/white hearts if you updated drawTinyHeart
+    const cx=canvas.width/2, y=canvas.height*0.55;
+    const t=Math.min(1, kissT/180);
+    const leftX=lerp(-220, cx-110, t);
+    const rightX=lerp(canvas.width+220, cx+110, t);
+    const bob=Math.sin(frame*0.06)*8;
 
-  const cx = canvas.width / 2;
-  const cy = canvas.height * 0.58;
+    drawCuteShark(ctx,COLORS,leftX,y+bob,1,3);
+    drawCuteShark(ctx,COLORS,rightX,y-bob,-1,3);
 
-  // Approach timing
-  const approachT = Math.min(1, kissT / 200); // slower + calmer
-  const leftTargetX = cx - 90;
-  const rightTargetX = cx + 90;
-
-  const leftX = lerp(-260, leftTargetX, approachT);
-  const rightX = lerp(canvas.width + 260, rightTargetX, approachT);
-
-  const bob = Math.sin(frame * 0.045) * 6;
-
-  // Draw sharks approaching
-  drawCuteShark(ctx, C, leftX, cy + bob, 1, 3);
-  drawCuteShark(ctx, C, rightX, cy - bob, -1, 3);
-
-  // Nose boop moment window
-  const boopStart = 210;
-  const boopEnd = 270;
-  const isBooping = kissT >= boopStart && kissT <= boopEnd;
-
-  // When boop happens, add a gentle sparkle burst once
-  if (kissT === boopStart) {
-    spawnSparkles(cx, cy - 40, C.sparklePink2 || C.pinkSparkleLight, 28);
-
-    // Spawn bubble-heart trail particles
-    for (let i = 0; i < 40; i++) {
-      // heart curve (parametric-ish)
-      const t = (i / 39) * Math.PI * 2;
-      const hx = 16 * Math.pow(Math.sin(t), 3);
-      const hy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
-
-      kissHearts.push({
-        x: cx + hx * 5,
-        y: (cy - 70) + hy * 5,
-        life: 160,
-        r: 2 + Math.random() * 2,
-        drift: (Math.random() - 0.5) * 0.6
-      });
+    if(kissT===185){
+      kissHearts.push({x:cx,y:y-80,life:140});
+      spawnSparkles(cx, y-60, COLORS.pinkSparkle, 56);
     }
-  }
 
-  // If booping, do a tiny "nose boop" bounce
-  if (isBooping) {
-    const p = (kissT - boopStart) / (boopEnd - boopStart); // 0..1
-    const bounce = Math.sin(p * Math.PI) * 6;
+    kissHearts.forEach(h=>{
+      h.life--; h.y-=0.6;
+      const pulse=Math.sin(frame*0.12)>0;
+      drawHeart(ctx,COLORS,h.x,h.y,18+(pulse?2:0));
+    });
+    kissHearts=kissHearts.filter(h=>h.life>0);
 
-    drawCuteShark(ctx, C, leftTargetX + bounce, cy + bob, 1, 3);
-    drawCuteShark(ctx, C, rightTargetX - bounce, cy - bob, -1, 3);
-  }
+    ctx.textAlign="center";
+    ctx.font="18px 'Press Start 2P'";
+    ctx.fillStyle=COLORS.pinkSparkle;
+    ctx.fillText("MWAH 💋", cx, canvas.height*0.22);
 
-  // Bubble-heart particles update + draw
-  // (reusing kissHearts array as bubble points)
-  kissHearts.forEach(b => {
-    b.life--;
-    b.y -= 0.15;           // slow float up
-    b.x += b.drift * 0.2;  // tiny drift
-  });
-  kissHearts = kissHearts.filter(b => b.life > 0);
-
-  // Draw bubble heart
-  ctx.fillStyle = "rgba(180, 220, 255, 0.55)";
-  kissHearts.forEach(b => {
-    ctx.fillRect(b.x, b.y, b.r, b.r);
-    // tiny highlight pixel
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
-    ctx.fillRect(b.x + 1, b.y, 1, 1);
-    ctx.fillStyle = "rgba(180, 220, 255, 0.55)";
-  });
-
-  // Text (soft, not meme-y)
-  ctx.textAlign = "center";
-  ctx.font = "16px 'Press Start 2P'";
-  ctx.fillStyle = C.sparklePink || C.pinkSparkle;
-  ctx.fillText("A LITTLE NOSE BOOP", cx, canvas.height * 0.22);
-
-  ctx.fillStyle = C.white;
-  ctx.font = "12px 'Press Start 2P'";
-  ctx.fillText("AND A LOT OF LOVE", cx, canvas.height * 0.27);
-
-  // Soft sparkles overlay
-  drawSparkles(C.sparklePink2 || C.pinkSparkleLight);
-
-  // End after ~7 seconds
-  return kissT > 420;
-};
-
+    drawSparkles(COLORS.pinkSparkleLight);
+    return kissT>360;
+  };
 
   Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
     finalT++;
@@ -237,12 +176,12 @@
     });
   }
 
-  function floatingHearts(ctx, C, frame){
-  vHearts.forEach(h=>{
-    drawTinyHeart(ctx, h.x, h.y, h.size, C);
-  });
-}
-
+  function floatingHearts(ctx,C,frame){
+    vHearts.forEach(h=>{
+      const pulse=Math.sin(frame*h.tw+h.phase)>0.4;
+      drawTinyHeart(ctx, h.x, h.y, h.size, C);
+    });
+  }
 
   function tinySharks(ctx,C,frame){
     vSharks.forEach(s=>{
@@ -251,72 +190,40 @@
     });
   }
 
-function drawTinyHeart(ctx, x, y, size, C) {
-  const s = Math.max(6, size);
+  function drawTinyHeart(ctx, x, y, size, C) {
+    const s=Math.max(6,size);
+    ctx.fillStyle=color;
+    ctx.fillRect(x,y,s,s);
+    ctx.fillRect(x+s+2,y,s,s);
+    ctx.fillRect(x+2,y+s,s*2,s);
+    ctx.fillRect(x+4,y+s*2,(s*2)-4,s);
+  }
 
-  // Outer heart (pink)
-  ctx.fillStyle = C.heartPink;
-  ctx.fillRect(x, y, s, s);
-  ctx.fillRect(x + s + 2, y, s, s);
-  ctx.fillRect(x + 2, y + s, (s * 2), s);
-  ctx.fillRect(x + 4, y + (s * 2), (s * 2) - 4, s);
+  function drawCuteShark(ctx,C,x,y,dir,scale){
+    ctx.save(); ctx.translate(x,y);
+    if(dir===-1) ctx.scale(-1,1);
 
-  // Highlight (light)
-  ctx.fillStyle = C.heartLight;
-  ctx.fillRect(x + 2, y + 2, s - 3, s - 3);
-  ctx.fillRect(x + s + 4, y + 2, s - 3, s - 3);
-}
+    ctx.fillStyle="rgba(0,0,0,0.35)";
+    ctx.fillRect(-2*scale,10*scale,26*scale,2*scale);
 
+    ctx.fillStyle=C.white;
+    ctx.fillRect(4*scale,6*scale,16*scale,6*scale);
 
- function drawCuteShark(ctx, C, x, y, dir, scale) {
-  ctx.save();
-  ctx.translate(x, y);
-  if (dir === -1) ctx.scale(-1, 1);
+    ctx.fillStyle=C.blueShark;
+    ctx.fillRect(0,8*scale,24*scale,8*scale);
+    ctx.fillRect(6*scale,2*scale,16*scale,6*scale);
 
-  const s = scale;
+    ctx.fillStyle=C.white;
+    ctx.fillRect(12*scale,-4*scale,6*scale,6*scale);
 
-  // Outline
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(-2*s, 12*s, 34*s, 2*s);
+    ctx.fillStyle=C.blueShark;
+    ctx.fillRect(-6*scale,10*scale,6*scale,6*scale);
 
-  // Dark back
-  ctx.fillStyle = C.sharkDark;
-  ctx.fillRect(0, 8*s, 32*s, 10*s);
-  ctx.fillRect(10*s, 2*s, 16*s, 6*s);
+    ctx.fillStyle="#000";
+    ctx.fillRect(18*scale,10*scale,2*scale,2*scale);
 
-  // Mid
-  ctx.fillStyle = C.sharkMid;
-  ctx.fillRect(2*s, 10*s, 30*s, 8*s);
-  ctx.fillRect(12*s, 4*s, 14*s, 4*s);
-
-  // Light highlight (top ridge)
-  ctx.fillStyle = C.sharkLight;
-  ctx.fillRect(6*s, 10*s, 18*s, 3*s);
-  ctx.fillRect(18*s, 13*s, 10*s, 2*s);
-
-  // Belly
-  ctx.fillStyle = C.sharkBelly;
-  ctx.fillRect(10*s, 16*s, 18*s, 4*s);
-
-  // Fin
-  ctx.fillStyle = C.sharkDark;
-  ctx.fillRect(18*s, -4*s, 8*s, 8*s);
-
-  // Tail
-  ctx.fillStyle = C.sharkMid;
-  ctx.fillRect(-10*s, 12*s, 10*s, 6*s);
-  ctx.fillStyle = C.sharkDark;
-  ctx.fillRect(-14*s, 10*s, 4*s, 4*s);
-
-  // Eye
-  ctx.fillStyle = "#000";
-  ctx.fillRect(26*s, 12*s, 2*s, 2*s);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(27*s, 12*s, 1*s, 1*s);
-
-  ctx.restore();
-}
-
+    ctx.restore();
+  }
 
   function mkBigWhites(canvas){
     const arr=[];
@@ -332,55 +239,32 @@ function drawTinyHeart(ctx, x, y, size, C) {
     return arr;
   }
 
-  function drawBigWhite(ctx, x, y, dir) {
-  ctx.save();
-  ctx.translate(x, y);
-  if (dir === -1) ctx.scale(-1, 1);
+  function drawBigWhite(ctx,x,y,dir){
+    ctx.save(); ctx.translate(x,y);
+    if(dir===-1) ctx.scale(-1,1);
 
-  // Size ~140x40 sprite
-  // Shadow/outline
-  ctx.fillStyle = "rgba(0,0,0,0.30)";
-  ctx.fillRect(-12, -6, 150, 44);
+    ctx.fillStyle="rgba(0,0,0,0.25)";
+    ctx.fillRect(-10,-8,120,26);
 
-  // Back dark
-  ctx.fillStyle = "#5f7f93";
-  ctx.fillRect(0, 0, 135, 34);
-  ctx.fillRect(28, -14, 78, 14);
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(0,0,110,24);
+    ctx.fillRect(20,-10,70,10);
 
-  // Mid
-  ctx.fillStyle = "#89a9bf";
-  ctx.fillRect(6, 6, 125, 24);
-  ctx.fillRect(34, -10, 68, 10);
+    ctx.fillStyle="#b8d3e6";
+    ctx.fillRect(0,0,110,10);
 
-  // Belly
-  ctx.fillStyle = "#f4fbff";
-  ctx.fillRect(18, 22, 96, 12);
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(52,-26,18,16);
 
-  // Fin
-  ctx.fillStyle = "#5f7f93";
-  ctx.fillRect(66, -30, 18, 18);
-  ctx.fillStyle = "#89a9bf";
-  ctx.fillRect(68, -28, 14, 14);
+    ctx.fillStyle="#b8d3e6";
+    ctx.fillRect(-26,8,26,10);
+    ctx.fillRect(-14,0,14,8);
 
-  // Tail
-  ctx.fillStyle = "#5f7f93";
-  ctx.fillRect(-34, 14, 34, 14);
-  ctx.fillStyle = "#89a9bf";
-  ctx.fillRect(-20, 6, 20, 10);
+    ctx.fillStyle="#000";
+    ctx.fillRect(88,10,4,4);
 
-  // Eye
-  ctx.fillStyle = "#000";
-  ctx.fillRect(110, 16, 4, 4);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(112, 16, 2, 2);
-
-  // Mouth hint
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(92, 28, 24, 2);
-
-  ctx.restore();
-}
-
+    ctx.restore();
+  }
 
   function drawHeart(ctx,C,cx,cy,size){
     const s=size;

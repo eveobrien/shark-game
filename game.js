@@ -11,18 +11,6 @@ const COLORS={
   bg:"#1a1429",
   pinkSparkle:"#ff4fd8", pinkSparkleLight:"#ff8fe7",
   blueShark:"#8fd3ff", white:"#ffffff",
-
-  // More "real" shark ramp + softer romance tones
-  sharkDark:  "#355b7a",
-  sharkMid:   "#5fa0c6",
-  sharkLight: "#a8ddff",
-  sharkBelly: "#f3fbff",
-
-  sparklePink: "#ff5cd6",
-  sparklePink2:"#ff9ae8",
-  heartPink:   "#ff7bcf",
-  heartLight:  "#ffd3ef",
-
 };
 
 let gameState="start"; // start|playing|gameover|freeze|transition|valentine|celebrate|kiss|final
@@ -32,7 +20,7 @@ let freezeTimer=0, transitionOffset=0, fadeAlpha=0;
 let sparkles=[];
 
 const gravity=0.5, jumpStrength=-7, pipeGap=110, pipeWidth=40, pipeSpeed=2;
-const shark={x:90,y:canvas.height/2,size:16,velocity:0};
+const shark={x:90,y:canvas.height/2,size: 24,velocity:0};
 let pipes=[];
 
 let stars=[], bubbles=[];
@@ -169,45 +157,47 @@ function drawPixelShark(x, y, a = 1) {
   ctx.save();
   ctx.globalAlpha = a;
 
-  // 32x18-ish sprite (more detail)
-  // Outline first
+  // More detailed pixel shark (shaded ramp)
+  // (Top-left anchored at x,y)
   ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(x - 2, y + 6, 36, 2); // bottom shadow hint
+  ctx.fillRect(x - 2, y + 14, 36, 2); // subtle shadow line
 
-  // Back (dark)
+  // Back (dark ridge)
   ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x + 2, y + 2, 28, 10);
-  ctx.fillRect(x + 8, y - 2, 16, 4);
+  ctx.fillRect(x + 2, y + 4, 28, 10);
+  ctx.fillRect(x + 8, y, 16, 4);
 
   // Mid tone
   ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x + 4, y + 4, 26, 8);
-  ctx.fillRect(x + 10, y, 14, 4);
+  ctx.fillRect(x + 4, y + 6, 26, 8);
+  ctx.fillRect(x + 10, y + 2, 14, 4);
 
-  // Light highlight + dithering
+  // Light highlight + mild dithering
   ctx.fillStyle = COLORS.sharkLight;
-  ctx.fillRect(x + 8, y + 4, 16, 4);
-  ctx.fillRect(x + 14, y + 8, 10, 2);
+  ctx.fillRect(x + 8, y + 6, 16, 4);
+  ctx.fillRect(x + 14, y + 10, 10, 2);
 
   // Belly
   ctx.fillStyle = COLORS.sharkBelly;
-  ctx.fillRect(x + 10, y + 10, 16, 3);
+  ctx.fillRect(x + 10, y + 12, 16, 3);
 
   // Fin (top)
   ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x + 16, y - 8, 6, 6);
+  ctx.fillRect(x + 16, y - 6, 6, 6);
+  ctx.fillStyle = COLORS.sharkMid;
+  ctx.fillRect(x + 17, y - 5, 4, 4);
 
   // Tail
   ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x - 6, y + 6, 8, 6);
+  ctx.fillRect(x - 6, y + 8, 8, 6);
   ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x - 10, y + 4, 4, 4);
+  ctx.fillRect(x - 10, y + 6, 4, 4);
 
   // Eye
   ctx.fillStyle = "#000";
-  ctx.fillRect(x + 26, y + 7, 2, 2);
+  ctx.fillRect(x + 26, y + 9, 2, 2);
   ctx.fillStyle = "#fff";
-  ctx.fillRect(x + 27, y + 7, 1, 1);
+  ctx.fillRect(x + 27, y + 9, 1, 1);
 
   ctx.restore();
 }
