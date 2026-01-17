@@ -4,7 +4,7 @@ const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
 // Turn DEV_MODE off before gifting
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 // Palette + shark ramp
 const COLORS = {
