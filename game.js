@@ -11,6 +11,12 @@ const COLORS={
   bg:"#1a1429",
   pinkSparkle:"#ff4fd8", pinkSparkleLight:"#ff8fe7",
   blueShark:"#8fd3ff", white:"#ffffff",
+  sharkDark:  "#355b7a",
+  sharkMid:   "#5fa0c6",
+  sharkLight: "#a8ddff",
+  sharkBelly: "#f3fbff",
+  heartPink: "#ff6fae",
+  heartLight: "#ffd1e6"
 };
 
 let gameState="start"; // start|playing|gameover|freeze|transition|valentine|celebrate|kiss|final
@@ -20,7 +26,7 @@ let freezeTimer=0, transitionOffset=0, fadeAlpha=0;
 let sparkles=[];
 
 const gravity=0.5, jumpStrength=-7, pipeGap=110, pipeWidth=40, pipeSpeed=2;
-const shark={x:90,y:canvas.height/2,size:16,velocity:0};
+const shark={x:90,y:canvas.height/2,size: 24,velocity:0};
 let pipes=[];
 
 let stars=[], bubbles=[];
@@ -176,14 +182,64 @@ function drawBackground(){
   ctx.fillStyle="rgba(200,210,255,0.5)"; bubbles.forEach(b=>ctx.fillRect(b.x,b.y,b.size,b.size));
 }
 
-function drawPixelShark(x,y,a=1){
-  ctx.save(); ctx.globalAlpha=a;
-  ctx.fillStyle=COLORS.purpleDark; ctx.fillRect(x-1,y+1,18,10);
-  ctx.fillStyle=COLORS.purpleMain; ctx.fillRect(x,y,16,8); ctx.fillRect(x+2,y-4,12,4);
-  ctx.fillStyle=COLORS.purpleDark; ctx.fillRect(x+6,y-8,4,4); ctx.fillRect(x-4,y+2,4,4);
-  ctx.fillStyle="#000"; ctx.fillRect(x+12,y+2,2,2);
+function drawPixelShark(x, y, a = 1) {
+  ctx.save();
+  ctx.globalAlpha = a;
+
+  // More detailed pixel shark (~34x18) using shaded ramp
+  // 1px outline/shadow for contrast
+  ctx.fillStyle = "rgba(0,0,0,0.40)";
+  ctx.fillRect(x - 3, y + 15, 38, 2);
+  ctx.fillRect(x + 1, y + 3, 30, 1); // top outline hint
+
+  // Back ridge (dark)
+  ctx.fillStyle = COLORS.sharkDark;
+  ctx.fillRect(x + 2, y + 4, 28, 10);
+  ctx.fillRect(x + 8, y, 16, 4);
+
+  // Mid tone body
+  ctx.fillStyle = COLORS.sharkMid;
+  ctx.fillRect(x + 4, y + 6, 26, 8);
+  ctx.fillRect(x + 10, y + 2, 14, 4);
+
+  // Light highlight
+  ctx.fillStyle = COLORS.sharkLight;
+  ctx.fillRect(x + 8, y + 6, 16, 3);
+  ctx.fillRect(x + 16, y + 9, 10, 2);
+
+  // Belly (white-blue)
+  ctx.fillStyle = COLORS.sharkBelly;
+  ctx.fillRect(x + 10, y + 12, 16, 3);
+
+  // Dither pixels for "32-bit" texture
+  ctx.fillStyle = COLORS.sharkLight;
+  ctx.fillRect(x + 12, y + 8, 2, 1);
+  ctx.fillRect(x + 20, y + 7, 2, 1);
+  ctx.fillStyle = COLORS.sharkMid;
+  ctx.fillRect(x + 18, y + 10, 2, 1);
+
+  // Fin (top)
+  ctx.fillStyle = COLORS.sharkDark;
+  ctx.fillRect(x + 16, y - 6, 6, 6);
+  ctx.fillStyle = COLORS.sharkMid;
+  ctx.fillRect(x + 17, y - 5, 4, 4);
+
+  // Tail
+  ctx.fillStyle = COLORS.sharkMid;
+  ctx.fillRect(x - 6, y + 8, 8, 6);
+  ctx.fillStyle = COLORS.sharkDark;
+  ctx.fillRect(x - 10, y + 6, 4, 4);
+  ctx.fillRect(x - 12, y + 10, 2, 2);
+
+  // Eye + tiny highlight
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x + 26, y + 9, 2, 2);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x + 27, y + 9, 1, 1);
+
   ctx.restore();
 }
+
 
 function drawCoral(p,y,height,flip=1){
   const sway=Math.sin(frame*0.02+p.swaySeed)*3;

@@ -1,6 +1,11 @@
 (function(){
   const Valentine={}; window.Valentine=Valentine;
 
+  // Heart sprite (place heart.png beside index.html)
+  const heartSprite = new Image();
+  heartSprite.src = "heart.png";
+
+
   let vHearts=[], vStars=[], vSharks=[];
   let celebrateT=0, kissT=0, finalT=0;
   let bigWhites=[], kissHearts=[];
@@ -97,7 +102,7 @@
     kissHearts.forEach(h=>{
       h.life--; h.y-=0.6;
       const pulse=Math.sin(frame*0.12)>0;
-      drawHeart(ctx,COLORS,h.x,h.y,18+(pulse?2:0));
+      drawHeart(ctx, COLORS, h.x, h.y, 26 + (pulse ? 2 : 0), frame);
     });
     kissHearts=kissHearts.filter(h=>h.life>0);
 
@@ -134,6 +139,10 @@
     ctx.font = "14px 'Press Start 2P'";
     const maxW = Math.min(620, canvas.width * 0.82);
     const startY = canvas.height * 0.30;
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(Math.round(cx - maxW/2) - 18, Math.round(startY) - 34, Math.round(maxW) + 36, 240);
+
+    ctx.fillStyle = C.white;
     wrapText(ctx, paragraph, cx, startY, maxW, 26);
 
     // Soft prompt
@@ -148,7 +157,7 @@
   function initParticles(canvas){
     vHearts=[]; vStars=[]; vSharks=[];
     for(let i=0;i<28;i++){
-      vHearts.push({x:Math.random()*canvas.width,y:canvas.height+Math.random()*canvas.height,speed:0.6+Math.random()*0.8,drift:(Math.random()-0.5)*0.6,phase:Math.random()*Math.PI*2,size: 18 + Math.floor(Math.random() * 8),tw: Math.random()*0.08+0.03, jitter: Math.random()*Math.PI*2});
+      vHearts.push({x:Math.random()*canvas.width,y:canvas.height+Math.random()*canvas.height,speed:0.6+Math.random()*0.8,drift:(Math.random()-0.5)*0.6,phase:Math.random()*Math.PI*2,size: 18 + Math.floor(Math.random() * 14),tw: Math.random()*0.08+0.03, seed: Math.random()*Math.PI*2});
     }
     for(let i=0;i<70;i++){
       vStars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,tw:Math.random()*0.12+0.03});
@@ -161,9 +170,12 @@
 
   function updateParticles(frame,canvas){
     vHearts.forEach(h=>{
-      h.y-=h.speed;
-      h.x+=Math.sin(frame*h.tw+h.phase)*0.9+h.drift;
-      if(h.y<-60){ h.y=canvas.height+60+Math.random()*300; h.x=Math.random()*canvas.width; }
+      h.y -= h.speed;
+      h.x += Math.sin(frame*h.tw + h.phase) * 0.6 + h.drift;
+      if(h.y < -80){
+        h.y = canvas.height + 80 + Math.random()*300;
+        h.x = Math.random()*canvas.width;
+      }
     });
     vSharks.forEach(s=>{
       s.x+=s.speed*s.dir; s.bob+=0.03;
@@ -189,10 +201,8 @@
   }
 
   function floatingHearts(ctx, C, frame, canvas) {
-    // set fade denom once per frame (so hearts fade near the top regardless of canvas size)
-    C._heartFadeDen = canvas.height * 0.75;
     vHearts.forEach(h => {
-      drawTinyHeart(ctx, h.x, h.y, h.size, C, frame, h.jitter || 0);
+      drawTinyHeart(ctx, h.x, h.y, h.size, frame, h.seed || 0, canvas);
     });
   }
 
@@ -203,37 +213,78 @@
     });
   }
 
-  function drawTinyHeart(ctx,x,y,size,color){
-    const s=Math.max(6,size);
-    ctx.fillStyle=color;
-    ctx.fillRect(x,y,s,s);
-    ctx.fillRect(x+s+2,y,s,s);
-    ctx.fillRect(x+2,y+s,s*2,s);
-    ctx.fillRect(x+4,y+s*2,(s*2)-4,s);
+  function drawTinyHeart(ctx, x, y, size, frame, seed, canvas) {
+    const s = Math.round(Math.max(12, Math.min(40, size))); // variable sizes
+    const jx = Math.round(Math.sin(frame * 0.11 + seed) * 1); // ±1px
+    const jy = Math.round(Math.cos(frame * 0.09 + seed) * 1); // ±1px
+    const rot = Math.sin(frame * 0.02 + seed) * 0.08; // subtle rotation
+
+    // Fade as it rises (top = more transparent)
+    const fadeDen = canvas.height * 0.75;
+    const alpha = Math.max(0, Math.min(1, (y + 120) / fadeDen));
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x + jx + s / 2, y + jy + s / 2);
+    ctx.rotate(rot);
+    ctx.imageSmoothingEnabled = false;
+    // If sprite not loaded yet, draw a tiny fallback pixel heart
+    if (!heartSprite.complete || heartSprite.naturalWidth === 0) {
+      ctx.fillStyle = "#ff6fae";
+      ctx.fillRect(-s/4, -s/4, s/2, s/2);
+    } else {
+      ctx.drawImage(heartSprite, -s / 2, -s / 2, s, s);
+    }
+    ctx.restore();
   }
 
-  function drawCuteShark(ctx,C,x,y,dir,scale){
-    ctx.save(); ctx.translate(x,y);
-    if(dir===-1) ctx.scale(-1,1);
+  function drawCuteShark(ctx, C, x, y, dir, scale) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (dir === -1) ctx.scale(-1, 1);
 
-    ctx.fillStyle="rgba(0,0,0,0.35)";
-    ctx.fillRect(-2*scale,10*scale,26*scale,2*scale);
+    const s = scale;
 
-    ctx.fillStyle=C.white;
-    ctx.fillRect(4*scale,6*scale,16*scale,6*scale);
+    // Outline/shadow
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(-2*s, 14*s, 38*s, 2*s);
 
-    ctx.fillStyle=C.blueShark;
-    ctx.fillRect(0,8*scale,24*scale,8*scale);
-    ctx.fillRect(6*scale,2*scale,16*scale,6*scale);
+    // Back ridge
+    ctx.fillStyle = C.sharkDark;
+    ctx.fillRect(0, 8*s, 34*s, 10*s);
+    ctx.fillRect(10*s, 2*s, 18*s, 6*s);
 
-    ctx.fillStyle=C.white;
-    ctx.fillRect(12*scale,-4*scale,6*scale,6*scale);
+    // Mid body
+    ctx.fillStyle = C.sharkMid;
+    ctx.fillRect(2*s, 10*s, 32*s, 8*s);
+    ctx.fillRect(12*s, 4*s, 16*s, 4*s);
 
-    ctx.fillStyle=C.blueShark;
-    ctx.fillRect(-6*scale,10*scale,6*scale,6*scale);
+    // Highlight
+    ctx.fillStyle = C.sharkLight;
+    ctx.fillRect(6*s, 10*s, 18*s, 3*s);
+    ctx.fillRect(18*s, 13*s, 10*s, 2*s);
 
-    ctx.fillStyle="#000";
-    ctx.fillRect(18*scale,10*scale,2*scale,2*scale);
+    // Belly
+    ctx.fillStyle = C.sharkBelly;
+    ctx.fillRect(10*s, 16*s, 20*s, 4*s);
+
+    // Fin
+    ctx.fillStyle = C.sharkDark;
+    ctx.fillRect(20*s, -4*s, 8*s, 8*s);
+    ctx.fillStyle = C.sharkMid;
+    ctx.fillRect(21*s, -3*s, 6*s, 6*s);
+
+    // Tail
+    ctx.fillStyle = C.sharkMid;
+    ctx.fillRect(-12*s, 12*s, 12*s, 6*s);
+    ctx.fillStyle = C.sharkDark;
+    ctx.fillRect(-16*s, 10*s, 4*s, 4*s);
+
+    // Eye
+    ctx.fillStyle = "#000";
+    ctx.fillRect(28*s, 12*s, 2*s, 2*s);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(29*s, 12*s, 1*s, 1*s);
 
     ctx.restore();
   }
@@ -279,13 +330,20 @@
     ctx.restore();
   }
 
-  function drawHeart(ctx,C,cx,cy,size){
-    const s=size;
-    ctx.fillStyle=C.pinkSparkleLight;
-    ctx.fillRect(cx-s-2,cy,s,s);
-    ctx.fillRect(cx+2,cy,s,s);
-    ctx.fillRect(cx-s,cy+s-2,s*2+4,s);
-    ctx.fillRect(cx-(s-2),cy+(s*2)-4,(s*2)-4,s);
+  function drawHeart(ctx, C, cx, cy, size, frame) {
+    const s = Math.round(size);
+    const rot = Math.sin(frame * 0.03) * 0.06;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.imageSmoothingEnabled = false;
+    if (!heartSprite.complete || heartSprite.naturalWidth === 0) {
+      ctx.fillStyle = "#ff6fae";
+      ctx.fillRect(-s/2, -s/2, s, s);
+    } else {
+      ctx.drawImage(heartSprite, -s/2, -s/2, s, s);
+    }
+    ctx.restore();
   }
 
   
