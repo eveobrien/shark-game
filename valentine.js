@@ -111,27 +111,72 @@
     return kissT>360;
   };
 
-  Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
-    finalT++;
-    bg(ctx,canvas,COLORS);
-    twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx, COLORS, frame, canvas);
-    tinySharks(ctx, COLORS, frame);
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(/\s+/);
+  let line = "";
 
-    const cx=canvas.width/2;
-    ctx.textAlign="center";
-    ctx.fillStyle=COLORS.yellowSoft;
-    ctx.font="22px 'Press Start 2P'";
-    ctx.fillText("HAPPY VALENTINE'S", cx, canvas.height*0.40);
-    ctx.fillStyle=COLORS.purpleMain;
-    ctx.font="26px 'Press Start 2P'";
-    ctx.fillText("CATHERINE 💜", cx, canvas.height*0.48);
-    ctx.fillStyle=COLORS.white;
-    ctx.font="14px 'Press Start 2P'";
-    ctx.fillText("(click to return)", cx, canvas.height*0.62);
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + " ";
+    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+      ctx.fillText(line.trim(), x, y);
+      line = words[n] + " ";
+      y += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line.trim()) ctx.fillText(line.trim(), x, y);
+}
 
-    drawSparkles(COLORS.pinkSparkleLight);
-  };
+
+  Valentine.drawFinal = ({ ctx, canvas, COLORS, frame, drawSparkles }) => {
+  finalT++;
+
+  bg(ctx, canvas, COLORS);
+  twinkles(ctx, COLORS, frame);
+  floatingHearts(ctx, COLORS, frame, canvas);
+  tinySharks(ctx, COLORS, frame);
+
+  const cx = canvas.width / 2;
+
+  // Title
+  ctx.textAlign = "center";
+  ctx.fillStyle = COLORS.yellowSoft;
+  ctx.font = "22px 'Press Start 2P'";
+  ctx.fillText("HAPPY VALENTINE'S", cx, canvas.height * 0.18);
+
+  ctx.fillStyle = COLORS.purpleMain;
+  ctx.font = "26px 'Press Start 2P'";
+  ctx.fillText("CATHERINE 💜", cx, canvas.height * 0.24);
+
+  // Paragraph (wrapped)
+  const paragraph =
+    "Catherine — I love you so much. I care about you deeply, and I like you and fancy you in the most ridiculous way. Every day with you feels brighter, and being close to you feels like home. I really believe we’re soulmates, and I can’t wait to build a life with you — choosing you, again and again, forever.";
+
+  ctx.font = "14px 'Press Start 2P'";
+  const maxW = Math.min(640, canvas.width * 0.80);
+  const textY = canvas.height * 0.34;
+
+  // Readability panel
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(
+    Math.round(cx - maxW / 2) - 18,
+    Math.round(textY) - 30,
+    Math.round(maxW) + 36,
+    260
+  );
+
+  ctx.fillStyle = COLORS.white;
+  wrapText(ctx, paragraph, cx, textY, maxW, 26);
+
+  // Footer
+  ctx.fillStyle = COLORS.heartLight || COLORS.yellowSoft;
+  ctx.font = "12px 'Press Start 2P'";
+  ctx.fillText("(click to return)", cx, canvas.height * 0.88);
+
+  drawSparkles(COLORS.pinkSparkleLight);
+};
+
 
   // ===== particles =====
   function initParticles(canvas){
