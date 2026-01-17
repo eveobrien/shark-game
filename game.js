@@ -11,10 +11,6 @@ const COLORS={
   bg:"#1a1429",
   pinkSparkle:"#ff4fd8", pinkSparkleLight:"#ff8fe7",
   blueShark:"#8fd3ff", white:"#ffffff",
-  heartPink: "#ff6fae",
- heartLight: "#ffd1e6",
- heartOutline: "rgba(120,40,80,0.9)",
-
 };
 
 let gameState="start"; // start|playing|gameover|freeze|transition|valentine|celebrate|kiss|final
@@ -24,14 +20,15 @@ let freezeTimer=0, transitionOffset=0, fadeAlpha=0;
 let sparkles=[];
 
 const gravity=0.5, jumpStrength=-7, pipeGap=110, pipeWidth=40, pipeSpeed=2;
-const shark={x:90,y:canvas.height/2,size: 24,velocity:0};
+const shark={x:90,y:canvas.height/2,size:16,velocity:0};
 let pipes=[];
 
 let stars=[], bubbles=[];
 let currentRunPath=[];
 let ghostPath=JSON.parse(localStorage.getItem("ghostPath"))||[];
 let bestScore=Number(localStorage.getItem("bestScore"))||0;
-let secretUnlocked=localStorage.getItem("secretUnlocked")==="true";
+let secretUnlocked = localStorage.getItem("secretUnlocked") === "true";
+let storySeen = localStorage.getItem("storySeen") === "true";
 
 for(let i=0;i<80;i++) stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,speed:Math.random()*0.25+0.1});
 for(let i=0;i<30;i++) bubbles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*3+2,speed:Math.random()*0.35+0.2});
@@ -51,7 +48,21 @@ document.addEventListener("keydown",(e)=>{
   if(e.code==="KeyV"){ gameState="freeze"; freezeTimer=0; transitionOffset=0; fadeAlpha=0; }
 });
 
-canvas.addEventListener("click",(e)=>{
+canvas.addEventListener("click", (e) => {
+
+  // Home screen replay button (available after the story has been seen once)
+  if (gameState === "start" && storySeen) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const r = getReplayButtonRect();
+    const inRect = x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+    if (inRect) {
+      enterValentine(); // replay the whole love story
+      return;
+    }
+  }
+
   if(gameState==="valentine"){
     const rect=canvas.getBoundingClientRect();
     const x=e.clientX-rect.left, y=e.clientY-rect.top;
@@ -64,6 +75,14 @@ canvas.addEventListener("click",(e)=>{
   }
   if(gameState==="final") gameState="start";
 });
+
+function getReplayButtonRect(){
+  const w = 420;
+  const h = 60;
+  const x = Math.round((canvas.width - w) / 2);
+  const y = Math.round(canvas.height * 0.58);
+  return { x, y, w, h };
+}
 
 function getValentineButtons(){
   const cx=canvas.width/2;
@@ -125,7 +144,7 @@ function update(){
 function enterValentine(){ gameState="valentine"; Valentine.init({canvas,COLORS}); }
 function enterCelebrate(){ gameState="celebrate"; Valentine.startCelebrate({canvas}); }
 function enterKiss(){ gameState="kiss"; Valentine.startKiss({canvas}); }
-function enterFinal(){ gameState="final"; Valentine.startFinal(); }
+function enterFinal(){ gameState="final"; Valentine.startFinal(); storySeen = true; localStorage.setItem("storySeen","true"); }
 
 function endGame(){
   if(DEV_MODE){ gameState="freeze"; freezeTimer=0; transitionOffset=0; fadeAlpha=0; return; }
@@ -157,55 +176,14 @@ function drawBackground(){
   ctx.fillStyle="rgba(200,210,255,0.5)"; bubbles.forEach(b=>ctx.fillRect(b.x,b.y,b.size,b.size));
 }
 
-function drawPixelShark(x, y, a = 1) {
-  ctx.save();
-  ctx.globalAlpha = a;
-
-  // More detailed pixel shark (shaded ramp)
-  // (Top-left anchored at x,y)
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(x - 2, y + 14, 36, 2); // subtle shadow line
-
-  // Back (dark ridge)
-  ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x + 2, y + 4, 28, 10);
-  ctx.fillRect(x + 8, y, 16, 4);
-
-  // Mid tone
-  ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x + 4, y + 6, 26, 8);
-  ctx.fillRect(x + 10, y + 2, 14, 4);
-
-  // Light highlight + mild dithering
-  ctx.fillStyle = COLORS.sharkLight;
-  ctx.fillRect(x + 8, y + 6, 16, 4);
-  ctx.fillRect(x + 14, y + 10, 10, 2);
-
-  // Belly
-  ctx.fillStyle = COLORS.sharkBelly;
-  ctx.fillRect(x + 10, y + 12, 16, 3);
-
-  // Fin (top)
-  ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x + 16, y - 6, 6, 6);
-  ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x + 17, y - 5, 4, 4);
-
-  // Tail
-  ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x - 6, y + 8, 8, 6);
-  ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x - 10, y + 6, 4, 4);
-
-  // Eye
-  ctx.fillStyle = "#000";
-  ctx.fillRect(x + 26, y + 9, 2, 2);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(x + 27, y + 9, 1, 1);
-
+function drawPixelShark(x,y,a=1){
+  ctx.save(); ctx.globalAlpha=a;
+  ctx.fillStyle=COLORS.purpleDark; ctx.fillRect(x-1,y+1,18,10);
+  ctx.fillStyle=COLORS.purpleMain; ctx.fillRect(x,y,16,8); ctx.fillRect(x+2,y-4,12,4);
+  ctx.fillStyle=COLORS.purpleDark; ctx.fillRect(x+6,y-8,4,4); ctx.fillRect(x-4,y+2,4,4);
+  ctx.fillStyle="#000"; ctx.fillRect(x+12,y+2,2,2);
   ctx.restore();
 }
-
 
 function drawCoral(p,y,height,flip=1){
   const sway=Math.sin(frame*0.02+p.swaySeed)*3;
@@ -241,6 +219,18 @@ function drawText(){
       ctx.font="10px 'Press Start 2P'"; ctx.fillStyle=COLORS.pinkSparkleLight;
       ctx.fillText("DEV: B=valentine  C=celebrate  K=kiss", canvas.width/2, 420);
     }
+    if (storySeen) {
+      const r = getReplayButtonRect();
+      ctx.fillStyle = COLORS.purpleMain;
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px \'Press Start 2P\'";
+      ctx.fillText("REPLAY LOVE STORY", canvas.width / 2, r.y + 40);
+      ctx.font = "10px \'Press Start 2P\'";
+      ctx.fillStyle = COLORS.yellowSoft;
+      ctx.fillText("(no need to beat anything)", canvas.width / 2, r.y + 78);
+    }
+
   }
   if(gameState==="playing"){
     ctx.font="18px 'Press Start 2P'"; ctx.fillStyle=COLORS.yellowGold; ctx.fillText(score, canvas.width/2, 70);

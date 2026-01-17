@@ -110,33 +110,45 @@
     return kissT>360;
   };
 
-  Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
+  Valentine.drawFinal = ({ ctx, canvas, COLORS: C, frame, drawSparkles }) => {
     finalT++;
-    bg(ctx,canvas,COLORS);
-    twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx,COLORS,frame);
-    tinySharks(ctx,COLORS,frame);
 
-    const cx=canvas.width/2;
-    ctx.textAlign="center";
-    ctx.fillStyle=COLORS.yellowSoft;
-    ctx.font="22px 'Press Start 2P'";
-    ctx.fillText("HAPPY VALENTINE'S", cx, canvas.height*0.40);
-    ctx.fillStyle=COLORS.purpleMain;
-    ctx.font="26px 'Press Start 2P'";
-    ctx.fillText("CATHERINE 💜", cx, canvas.height*0.48);
-    ctx.fillStyle=COLORS.white;
-    ctx.font="14px 'Press Start 2P'";
-    ctx.fillText("(click to return)", cx, canvas.height*0.62);
+    bg(ctx, canvas, C);
+    twinkles(ctx, C, frame);
+    floatingHearts(ctx, C, frame, canvas);
+    tinySharks(ctx, C, frame);
 
-    drawSparkles(COLORS.pinkSparkleLight);
+    const cx = canvas.width / 2;
+
+    // Heading
+    ctx.textAlign = "center";
+    ctx.fillStyle = C.purpleMain;
+    ctx.font = "22px 'Press Start 2P'";
+    ctx.fillText("CATHERINE 💜", cx, canvas.height * 0.18);
+
+    // Paragraph (gift-ready, forever language)
+    const paragraph =
+      "I love you more than I can put into words. Every day with you feels like magic, and I want to choose you—today, tomorrow, and forever. You are my soulmate, my best friend, and my favorite adventure. I want to be with you for the rest of my life.";
+
+    ctx.fillStyle = C.white;
+    ctx.font = "14px 'Press Start 2P'";
+    const maxW = Math.min(620, canvas.width * 0.82);
+    const startY = canvas.height * 0.30;
+    wrapText(ctx, paragraph, cx, startY, maxW, 26);
+
+    // Soft prompt
+    ctx.fillStyle = C.sparklePinkLight || C.pinkSparkleLight;
+    ctx.font = "12px 'Press Start 2P'";
+    ctx.fillText("CLICK TO RETURN HOME", cx, canvas.height * 0.86);
+
+    drawSparkles(C.pinkSparkleLight);
   };
 
   // ===== particles =====
   function initParticles(canvas){
     vHearts=[]; vStars=[]; vSharks=[];
     for(let i=0;i<28;i++){
-      vHearts.push({x:Math.random()*canvas.width,y:canvas.height+Math.random()*canvas.height,speed:0.6+Math.random()*0.8,drift:(Math.random()-0.5)*0.6,phase:Math.random()*Math.PI*2,size:10+Math.floor(Math.random()*10),tw:Math.random()*0.08+0.03});
+      vHearts.push({x:Math.random()*canvas.width,y:canvas.height+Math.random()*canvas.height,speed:0.6+Math.random()*0.8,drift:(Math.random()-0.5)*0.6,phase:Math.random()*Math.PI*2,size: 18 + Math.floor(Math.random() * 8),tw: Math.random()*0.08+0.03, jitter: Math.random()*Math.PI*2});
     }
     for(let i=0;i<70;i++){
       vStars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,tw:Math.random()*0.12+0.03});
@@ -176,10 +188,11 @@
     });
   }
 
-  function floatingHearts(ctx,C,frame){
-    vHearts.forEach(h=>{
-      const pulse=Math.sin(frame*h.tw+h.phase)>0.4;
-      drawTinyHeart(ctx, h.x, h.y, h.size, C);
+  function floatingHearts(ctx, C, frame, canvas) {
+    // set fade denom once per frame (so hearts fade near the top regardless of canvas size)
+    C._heartFadeDen = canvas.height * 0.75;
+    vHearts.forEach(h => {
+      drawTinyHeart(ctx, h.x, h.y, h.size, C, frame, h.jitter || 0);
     });
   }
 
@@ -190,29 +203,14 @@
     });
   }
 
- 
-  function drawTinyHeart(ctx, x, y, size, C) {
-  const s = Math.max(8, size); // keep hearts small + crisp
-
-  // Dark outline (1px)
-  ctx.fillStyle = C.heartOutline || "rgba(120,40,80,0.9)";
-  ctx.fillRect(x + 2, y, s - 4, 1);
-  ctx.fillRect(x + 1, y + 1, s - 2, 1);
-  ctx.fillRect(x, y + 2, s, s - 3);
-  ctx.fillRect(x + 1, y + s - 1, s - 2, 1);
-
-  // Main heart fill
-  ctx.fillStyle = C.heartPink || "#ff6fae";
-  ctx.fillRect(x + 2, y + 1, s - 4, 2);
-  ctx.fillRect(x + 1, y + 3, s - 2, s - 5);
-  ctx.fillRect(x + 2, y + s - 3, s - 4, 2);
-
-  // Highlight (top-left)
-  ctx.fillStyle = C.heartLight || "#ffd1e6";
-  ctx.fillRect(x + 3, y + 2, 2, 2);
-  ctx.fillRect(x + 4, y + 4, 2, 2);
-}
-
+  function drawTinyHeart(ctx,x,y,size,color){
+    const s=Math.max(6,size);
+    ctx.fillStyle=color;
+    ctx.fillRect(x,y,s,s);
+    ctx.fillRect(x+s+2,y,s,s);
+    ctx.fillRect(x+2,y+s,s*2,s);
+    ctx.fillRect(x+4,y+s*2,(s*2)-4,s);
+  }
 
   function drawCuteShark(ctx,C,x,y,dir,scale){
     ctx.save(); ctx.translate(x,y);
@@ -290,5 +288,22 @@
     ctx.fillRect(cx-(s-2),cy+(s*2)-4,(s*2)-4,s);
   }
 
-  function lerp(a,b,t){ return a+(b-a)*t; }
+  
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(/\s+/);
+    let line = "";
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && n > 0) {
+        ctx.fillText(line.trim(), x, y);
+        line = words[n] + " ";
+        y += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    if (line.trim()) ctx.fillText(line.trim(), x, y);
+  }
+function lerp(a,b,t){ return a+(b-a)*t; }
 })();
