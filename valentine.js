@@ -203,7 +203,9 @@
 
   function floatingHearts(ctx, C, frame, canvas) {
     vHearts.forEach(h => {
-      drawTinyHeart(ctx, h.x, h.y, h.size, frame, h.seed || 0, canvas);
+      const pulse = Math.sin(frame * h.tw + h.phase) > 0.4;
+      const col = pulse ? C.yellowSoft : C.yellowGold;
+      drawTinyHeart(ctx, h.x, h.y, h.size, col, frame, h.seed || 0, canvas);
     });
   }
 
@@ -215,16 +217,33 @@
     });
   }
 
-  function drawTinyHeart(ctx,x,y,size,color){
-    const s=Math.max(10,size); // keep the existing size feel
-    ctx.imageSmoothingEnabled=false;
+  function drawTinyHeart(ctx, x, y, size, color, frame, seed, canvas) {
+    const s = Math.round(Math.max(10, Math.min(36, size)));
+    const jx = Math.round(Math.sin(frame * 0.11 + seed) * 1);
+    const jy = Math.round(Math.cos(frame * 0.09 + seed) * 1);
+    const rot = Math.sin(frame * 0.02 + seed) * 0.08;
 
-    // Prefer the sprite (tinted) for clean heart shape
-    const tinted=getTintedHeart(color);
-    if(tinted){
-      ctx.drawImage(tinted, Math.round(x), Math.round(y), Math.round(s), Math.round(s));
-      return;
+    // Fade as it rises
+    const fadeDen = canvas.height * 0.75;
+    const alpha = Math.max(0, Math.min(1, (y + 120) / fadeDen));
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x + jx + s / 2, y + jy + s / 2);
+    ctx.rotate(rot);
+    ctx.imageSmoothingEnabled = false;
+
+    if (!heartSprite.complete || heartSprite.naturalWidth === 0) {
+      // fallback pixel heart
+      ctx.fillStyle = color;
+      ctx.fillRect(-s/4, -s/4, s/2, s/2);
+    } else {
+      // tinted sprite
+      ctx.drawImage(getTintedHeart(color), -s / 2, -s / 2, s, s);
     }
+
+    ctx.restore();
+  }
 
     // Fallback (before sprite loads): simple pixel heart
     const ss=Math.max(6,Math.round(s/2));
