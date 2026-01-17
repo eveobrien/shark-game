@@ -1,6 +1,31 @@
 (function(){
   const Valentine={}; window.Valentine=Valentine;
 
+  // Heart sprite (place heart.png beside index.html)
+  const heartSprite = new Image();
+  heartSprite.src = "heart.png";
+  const _heartTintCache = new Map();
+  function getTintedHeart(color){
+    if(_heartTintCache.has(color)) return _heartTintCache.get(color);
+    // If not loaded yet, skip caching (fallback will draw rect-heart)
+    if(!heartSprite.complete || !heartSprite.naturalWidth){
+      return null;
+    }
+    const c=document.createElement('canvas');
+    c.width=heartSprite.naturalWidth;
+    c.height=heartSprite.naturalHeight;
+    const g=c.getContext('2d');
+    g.imageSmoothingEnabled=false;
+    g.drawImage(heartSprite,0,0);
+    g.globalCompositeOperation='source-atop';
+    g.fillStyle=color;
+    g.fillRect(0,0,c.width,c.height);
+    g.globalCompositeOperation='source-over';
+    _heartTintCache.set(color,c);
+    return c;
+  }
+
+
   let vHearts=[], vStars=[], vSharks=[];
   let celebrateT=0, kissT=0, finalT=0;
   let bigWhites=[], kissHearts=[];
@@ -21,8 +46,8 @@
   Valentine.drawValentine=({ctx,canvas,COLORS,frame,getButtons,drawSparkles})=>{
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx,COLORS,frame);
-    tinySharks(ctx,COLORS,frame);
+    // bubble-only hearts in kiss scene
+    tinySharks(ctx, COLORS, frame);
 
     const cx=canvas.width/2;
     ctx.textAlign="center";
@@ -48,8 +73,8 @@
     celebrateT++;
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx,COLORS,frame);
-    tinySharks(ctx,COLORS,frame);
+    floatingHearts(ctx, COLORS, frame, canvas);
+    tinySharks(ctx, COLORS, frame);
 
     const floorY=canvas.height*0.85;
     bigWhites.forEach(s=>{
@@ -78,7 +103,7 @@
     kissT++;
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx,COLORS,frame);
+    // Bubble-only hearts in kiss scene (no background hearts)
 
     const cx=canvas.width/2, y=canvas.height*0.55;
     const t=Math.min(1, kissT/180);
@@ -110,52 +135,24 @@
     return kissT>360;
   };
 
-  
-  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(/\s+/);
-    let line = "";
-    for (let n = 0; n < words.length; n++) {
-      const testLine = line + words[n] + " ";
-      if (ctx.measureText(testLine).width > maxWidth && n > 0) {
-        ctx.fillText(line.trim(), x, y);
-        line = words[n] + " ";
-        y += lineHeight;
-      } else {
-        line = testLine;
-      }
-    }
-    if (line.trim()) ctx.fillText(line.trim(), x, y);
-  }
-
-Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
+  Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
     finalT++;
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx, COLORS, frame);
+    floatingHearts(ctx, COLORS, frame, canvas);
     tinySharks(ctx, COLORS, frame);
 
     const cx=canvas.width/2;
-
     ctx.textAlign="center";
     ctx.fillStyle=COLORS.yellowSoft;
     ctx.font="22px 'Press Start 2P'";
-    ctx.fillText("CATHERINE 💜", cx, canvas.height*0.16);
-
-    const paragraph="Catherine — I love you so much. I care about you deeply, and I like you and fancy you in the most ridiculous way. Every day with you feels brighter, and being close to you feels like home. I really believe we’re soulmates, and I can’t wait to spend forever with you.";
-
-    ctx.font="14px 'Press Start 2P'";
-    const maxW=Math.min(640, canvas.width*0.82);
-    const textY=canvas.height*0.28;
-
-    ctx.fillStyle="rgba(0,0,0,0.25)";
-    ctx.fillRect(Math.round(cx-maxW/2)-18, Math.round(textY)-30, Math.round(maxW)+36, 250);
-
+    ctx.fillText("HAPPY VALENTINE'S", cx, canvas.height*0.40);
+    ctx.fillStyle=COLORS.purpleMain;
+    ctx.font="26px 'Press Start 2P'";
+    ctx.fillText("CATHERINE 💜", cx, canvas.height*0.48);
     ctx.fillStyle=COLORS.white;
-    wrapText(ctx, paragraph, cx, textY, maxW, 26);
-
-    ctx.fillStyle=COLORS.pinkSparkleLight;
-    ctx.font="12px 'Press Start 2P'";
-    ctx.fillText("(click to return)", cx, canvas.height*0.88);
+    ctx.font="14px 'Press Start 2P'";
+    ctx.fillText("(click to return)", cx, canvas.height*0.62);
 
     drawSparkles(COLORS.pinkSparkleLight);
   };
@@ -204,12 +201,12 @@ Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
     });
   }
 
-  function floatingHearts(ctx,C,frame){
-    vHearts.forEach(h=>{
-      const pulse=Math.sin(frame*h.tw+h.phase)>0.4;
-      drawTinyHeart(ctx,h.x,h.y,h.size,pulse?C.yellowSoft:C.yellowGold);
+  function floatingHearts(ctx, C, frame, canvas) {
+    vHearts.forEach(h => {
+      drawTinyHeart(ctx, h.x, h.y, h.size, frame, h.seed || 0, canvas);
     });
   }
+
 
   function tinySharks(ctx,C,frame){
     vSharks.forEach(s=>{
@@ -219,12 +216,23 @@ Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
   }
 
   function drawTinyHeart(ctx,x,y,size,color){
-    const s=Math.max(6,size);
+    const s=Math.max(10,size); // keep the existing size feel
+    ctx.imageSmoothingEnabled=false;
+
+    // Prefer the sprite (tinted) for clean heart shape
+    const tinted=getTintedHeart(color);
+    if(tinted){
+      ctx.drawImage(tinted, Math.round(x), Math.round(y), Math.round(s), Math.round(s));
+      return;
+    }
+
+    // Fallback (before sprite loads): simple pixel heart
+    const ss=Math.max(6,Math.round(s/2));
     ctx.fillStyle=color;
-    ctx.fillRect(x,y,s,s);
-    ctx.fillRect(x+s+2,y,s,s);
-    ctx.fillRect(x+2,y+s,s*2,s);
-    ctx.fillRect(x+4,y+s*2,(s*2)-4,s);
+    ctx.fillRect(x,y,ss,ss);
+    ctx.fillRect(x+ss+2,y,ss,ss);
+    ctx.fillRect(x+2,y+ss,ss*2,ss);
+    ctx.fillRect(x+4,y+ss*2,(ss*2)-4,ss);
   }
 
   function drawCuteShark(ctx,C,x,y,dir,scale){
@@ -295,7 +303,16 @@ Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
   }
 
   function drawHeart(ctx,C,cx,cy,size){
-    const s=size;
+    const s=Math.max(14,size);
+    ctx.imageSmoothingEnabled=false;
+
+    // Use the uploaded heart sprite for the kiss scene hearts
+    if(heartSprite.complete && heartSprite.naturalWidth){
+      ctx.drawImage(heartSprite, Math.round(cx - s/2), Math.round(cy - s/2), Math.round(s), Math.round(s));
+      return;
+    }
+
+    // Fallback if sprite hasn't loaded yet
     ctx.fillStyle=C.pinkSparkleLight;
     ctx.fillRect(cx-s-2,cy,s,s);
     ctx.fillRect(cx+2,cy,s,s);

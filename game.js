@@ -1,478 +1,308 @@
-// Flappy Shark (GitHub Pages safe)
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d"); ctx.imageSmoothingEnabled=false;
 
-// Turn DEV_MODE off before gifting
-const DEV_MODE = true;
+// Turn this off before shipping
+const DEV_MODE=true;
 
-// Palette + shark ramp
-const COLORS = {
-  purpleMain: "#9b7bd3",
-  purpleDark: "#6f4fa3",
-  redCoral: "#7a2b3a",
-  redCoralDark: "#5b1e2d",
-  yellowSoft: "#f2d16b",
-  yellowGold: "#d6b85a",
-  bg: "#1a1429",
-  white: "#ffffff",
-
-  // sparkles
-  pinkSparkle: "#ff4fd8",
-  pinkSparkleLight: "#ff8fe7",
-
-  // shark ramp (blue/yellow vibe)
-  sharkDark:  "#24506a",
-  sharkMid:   "#3f87a7",
+const COLORS={
+  purpleMain:"#9b7bd3", purpleDark:"#6f4fa3",
+  redCoral:"#7a2b3a", redCoralDark:"#5b1e2d",
+  yellowSoft:"#f2d16b", yellowGold:"#d6b85a",
+  bg:"#1a1429",
+  pinkSparkle:"#ff4fd8", pinkSparkleLight:"#ff8fe7",
+  blueShark:"#8fd3ff", white:"#ffffff",
+  sharkDark: "#24506a",
+  sharkMid: "#3f87a7",
   sharkLight: "#8fd6ff",
-  sharkBelly: "#f3fbff",
-  sharkStripe:"#f2d16b",
+  sharkBelly: "#f4fbff",
+  sharkAccent: "#f2d16b",
 };
 
-// Initialize Valentine module if present
-if (window.Valentine && typeof Valentine.init === "function") {
-  Valentine.init({ canvas, COLORS });
-}
+let gameState="start"; // start|playing|gameover|freeze|transition|valentine|celebrate|kiss|final
+let frame=0, score=0;
 
-// --- Game state ---
-let gameState = "start"; // start|playing|gameover|freeze|transition|valentine|celebrate|kiss|final
-let frame = 0;
-let score = 0;
+let freezeTimer=0, transitionOffset=0, fadeAlpha=0;
+let sparkles=[];
 
-// Transition/freeze
-let freezeTimer = 0;
-let transitionOffset = 0;
-let fadeAlpha = 0;
+const gravity=0.5, jumpStrength=-7, pipeGap=110, pipeWidth=40, pipeSpeed=2;
+const shark={x:90,y:canvas.height/2,size:28,velocity:0};
+let pipes=[];
 
-// Particles
-let sparkles = [];
-let stars = [];
-let bubbles = [];
+let stars=[], bubbles=[];
+let currentRunPath=[];
+let ghostPath=JSON.parse(localStorage.getItem("ghostPath"))||[];
+let bestScore=Number(localStorage.getItem("bestScore"))||0;
+let secretUnlocked=localStorage.getItem("secretUnlocked")==="true";
 
-// Physics
-const gravity = 0.5;
-const jumpStrength = -8;
-const pipeGap = 120;
-const pipeWidth = 54;
-const pipeSpeed = 3;
+for(let i=0;i<80;i++) stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,speed:Math.random()*0.25+0.1});
+for(let i=0;i<30;i++) bubbles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*3+2,speed:Math.random()*0.35+0.2});
 
-// Shark
-const shark = { x: 140, y: canvas.height / 2, size: 34, velocity: 0 };
-
-// Pipes
-let pipes = [];
-
-// Ghost
-let currentRunPath = [];
-let ghostPath = JSON.parse(localStorage.getItem("ghostPath") || "[]");
-let bestScore = Number(localStorage.getItem("bestScore") || 0);
-let secretUnlocked = localStorage.getItem("secretUnlocked") === "true";
-
-// --- Background init ---
-function initBackground() {
-  stars = [];
-  bubbles = [];
-  for (let i = 0; i < 90; i++) {
-    stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, s: Math.random() * 0.5 + 0.2 });
-  }
-  for (let i = 0; i < 40; i++) {
-    bubbles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, s: Math.random() * 0.9 + 0.3, r: Math.random() * 4 + 2 });
-  }
-}
-initBackground();
-
-// --- Input ---
-document.addEventListener("keydown", (e) => {
-  if (e.code === "Space") {
-    if (gameState === "start") resetGame();
-    else if (gameState === "playing") shark.velocity = jumpStrength;
-    else if (gameState === "gameover") gameState = "start";
-  }
-
-  if (!DEV_MODE) return;
-  if (e.code === "KeyB") { enterValentine(); }         // jump to valentine
-  if (e.code === "KeyC") { enterCelebrate(); }         // jump to celebrate
-  if (e.code === "KeyK") { enterKiss(); }              // jump to kiss
-  if (e.code === "KeyF") { enterFinal(); }             // jump to final
+document.addEventListener("keydown",(e)=>{
+  if(e.code!=="Space") return;
+  if(gameState==="start") resetGame();
+  else if(gameState==="playing") shark.velocity=jumpStrength;
+  else if(gameState==="gameover") gameState="start";
 });
 
-// Clicks for valentine and returning home
-canvas.addEventListener("click", (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-
-  if (gameState === "valentine" && window.Valentine) {
-    const accepted = Valentine.handleValentineClick({ x, y, getButtons: getValentineButtons });
-    if (accepted) enterCelebrate();
-    return;
-  }
-  if (gameState === "final") {
-    gameState = "start";
-    return;
-  }
+document.addEventListener("keydown",(e)=>{
+  if(!DEV_MODE) return;
+  if(e.code==="KeyB") enterValentine();
+  if(e.code==="KeyC") enterCelebrate();
+  if(e.code==="KeyK") enterKiss();
+  if(e.code==="KeyV"){ gameState="freeze"; freezeTimer=0; transitionOffset=0; fadeAlpha=0; }
 });
 
-// --- Helpers ---
-function getValentineButtons() {
-  const cx = canvas.width / 2;
-  const y = Math.round(canvas.height * 0.62);
-  const w = 160, h = 56, gap = 40;
+canvas.addEventListener("click",(e)=>{
+  if(gameState==="valentine"){
+    const rect=canvas.getBoundingClientRect();
+    const x=e.clientX-rect.left, y=e.clientY-rect.top;
+    const didYes=Valentine.handleValentineClick({canvas,x,y,getButtons:getValentineButtons});
+    if(didYes){
+      spawnSparkles(canvas.width/2, canvas.height*0.46, COLORS.pinkSparkleLight, 56);
+      enterCelebrate();
+    }
+    return;
+  }
+  if(gameState==="final") gameState="start";
+});
+
+function getValentineButtons(){
+  const cx=canvas.width/2;
+  const y=Math.round(canvas.height*0.60);
+  const w=170,h=60,gap=40;
   return {
-    left:  { x: Math.round(cx - gap/2 - w), y, w, h },
-    right: { x: Math.round(cx + gap/2),     y, w, h },
+    left:{x:Math.round(cx-gap/2-w),y,w,h},
+    right:{x:Math.round(cx+gap/2),y,w,h}
   };
 }
 
-function resetGame() {
-  shark.y = canvas.height / 2;
-  shark.velocity = 0;
-  pipes = [];
-  score = 0;
-  frame = 0;
-  currentRunPath = [];
-  freezeTimer = 0;
-  transitionOffset = 0;
-  fadeAlpha = 0;
-  sparkles = [];
-  gameState = "playing";
+function resetGame(){
+  shark.y=canvas.height/2; shark.velocity=0;
+  pipes=[]; score=0; frame=0; currentRunPath=[];
+  freezeTimer=0; transitionOffset=0; fadeAlpha=0; sparkles=[];
+  gameState="playing";
 }
 
-function spawnSparkles(x, y, n = 18, color = COLORS.yellowSoft) {
-  for (let i = 0; i < n; i++) {
-    sparkles.push({
-      x, y,
-      vx: (Math.random() - 0.5) * 6,
-      vy: (Math.random() - 0.8) * 7,
-      life: 35,
-      c: color
+function createPipe(){
+  const topHeight=Math.floor(Math.random()*(canvas.height-pipeGap-140)+70);
+  pipes.push({x:canvas.width,top:topHeight,bottom:topHeight+pipeGap,swaySeed:Math.random()*Math.PI*2,polyps:Array.from({length:10},()=>Math.random()),scored:false});
+}
+
+function update(){
+  frame++; updateBackground();
+
+  if(gameState==="playing"){
+    shark.velocity+=gravity; shark.y+=shark.velocity;
+    currentRunPath.push({y:shark.y});
+    if(frame%120===0) createPipe();
+
+    pipes.forEach(p=>{
+      p.x-=pipeSpeed;
+      if(!p.scored && p.x+pipeWidth<shark.x){ score++; p.scored=true; }
+      if(shark.x+shark.size>p.x && shark.x<p.x+pipeWidth && (shark.y<p.top || shark.y+shark.size>p.bottom)) endGame();
     });
-  }
-}
-
-function drawSparkles() {
-  sparkles.forEach(s => {
-    ctx.fillStyle = s.c;
-    ctx.fillRect(Math.round(s.x), Math.round(s.y), 2, 2);
-  });
-}
-
-function spawnPipe() {
-  const top = Math.floor(Math.random() * (canvas.height - pipeGap - 260) + 120);
-  pipes.push({
-    x: canvas.width + 20,
-    top,
-    bottom: top + pipeGap,
-    swaySeed: Math.random() * Math.PI * 2,
-    polyps: Array.from({ length: 14 }, () => Math.random()),
-    scored: false
-  });
-}
-
-// --- Update ---
-function updateBackground() {
-  stars.forEach(s => { s.y += s.s; if (s.y > canvas.height) s.y = 0; });
-  bubbles.forEach(b => { b.y -= b.s; if (b.y < -10) b.y = canvas.height + 10; });
-}
-
-function update() {
-  frame++;
-  updateBackground();
-
-  // Update Valentine module timers/particles
-  if (window.Valentine && typeof Valentine.update === "function") {
-    Valentine.update({ frame, canvas });
+    pipes=pipes.filter(p=>p.x+pipeWidth>0);
+    if(shark.y<0 || shark.y+shark.size>canvas.height) endGame();
   }
 
-  // Sparkles update
-  sparkles.forEach(s => { s.x += s.vx; s.y += s.vy; s.life--; s.vy += 0.12; });
-  sparkles = sparkles.filter(s => s.life > 0);
-
-  if (gameState === "playing") {
-    shark.velocity += gravity;
-    shark.y += shark.velocity;
-    currentRunPath.push({ y: shark.y });
-
-    if (frame % 120 === 0) spawnPipe();
-
-    pipes.forEach(p => {
-      p.x -= pipeSpeed;
-      if (!p.scored && p.x + pipeWidth < shark.x) { score++; p.scored = true; }
-      const hitX = shark.x + shark.size > p.x && shark.x < p.x + pipeWidth;
-      const hitY = shark.y < p.top || shark.y + shark.size > p.bottom;
-      if (hitX && hitY) endGame();
-    });
-
-    pipes = pipes.filter(p => p.x + pipeWidth > -50);
-
-    if (shark.y < 0 || shark.y + shark.size > canvas.height) endGame();
-  }
-
-  if (gameState === "freeze") {
+  if(gameState==="freeze"){
     freezeTimer++;
-    if (freezeTimer > 180) gameState = "transition";
+    if(freezeTimer>180) gameState="transition";
+  }
+  if(gameState==="transition"){
+    transitionOffset+=8;
+    fadeAlpha=Math.min(1, fadeAlpha+0.02);
+    if(fadeAlpha>=1) enterValentine();
   }
 
-  if (gameState === "transition") {
-    transitionOffset += 10;
-    fadeAlpha = Math.min(1, fadeAlpha + 0.02);
-    if (fadeAlpha >= 1) gameState = "valentine";
+  if(["valentine","celebrate","kiss","final"].includes(gameState)){
+    Valentine.update({frame,canvas});
   }
+
+  sparkles.forEach(s=>{ s.x+=s.vx; s.y+=s.vy; s.life--; });
+  sparkles=sparkles.filter(s=>s.life>0);
 }
 
-// --- End game + unlock logic ---
-function endGame() {
-  const hadGhost = ghostPath.length > 0;
+function enterValentine(){ gameState="valentine"; Valentine.init({canvas,COLORS}); }
+function enterCelebrate(){ gameState="celebrate"; Valentine.startCelebrate({canvas}); }
+function enterKiss(){ gameState="kiss"; Valentine.startKiss({canvas}); }
+function enterFinal(){ gameState="final"; Valentine.startFinal(); }
 
-  if (score > bestScore) {
-    bestScore = score;
-    ghostPath = currentRunPath;
-    localStorage.setItem("bestScore", String(bestScore));
+function endGame(){
+  if(DEV_MODE){ gameState="freeze"; freezeTimer=0; transitionOffset=0; fadeAlpha=0; return; }
+
+  const hadGhost=ghostPath.length>0;
+  if(score>bestScore){
+    bestScore=score; ghostPath=currentRunPath;
+    localStorage.setItem("bestScore", bestScore);
     localStorage.setItem("ghostPath", JSON.stringify(ghostPath));
-
-    // Trigger cinematic once: first time beating an existing ghost
-    if (hadGhost && !secretUnlocked) {
-      secretUnlocked = true;
-      localStorage.setItem("secretUnlocked", "true");
-      gameState = "freeze";
-      freezeTimer = 0;
-      transitionOffset = 0;
-      fadeAlpha = 0;
-      spawnSparkles(canvas.width/2, canvas.height/2, 30, COLORS.pinkSparkleLight);
+    if(hadGhost && !secretUnlocked){
+      secretUnlocked=true; localStorage.setItem("secretUnlocked","true");
+      gameState="freeze"; freezeTimer=0; transitionOffset=0; fadeAlpha=0;
       return;
     }
   }
-
-  gameState = "gameover";
+  gameState="gameover";
 }
 
-// --- Scene enters ---
-function enterValentine() {
-  gameState = "valentine";
-}
-function enterCelebrate() {
-  gameState = "celebrate";
-  if (window.Valentine && Valentine.startCelebrate) Valentine.startCelebrate();
-}
-function enterKiss() {
-  gameState = "kiss";
-  if (window.Valentine && Valentine.startKiss) Valentine.startKiss();
-}
-function enterFinal() {
-  gameState = "final";
-  if (window.Valentine && Valentine.startFinal) Valentine.startFinal();
+function updateBackground(){
+  stars.forEach(s=>{ s.y+=s.speed; if(s.y>canvas.height) s.y=0; });
+  bubbles.forEach(b=>{ b.y-=b.speed; if(b.y<0) b.y=canvas.height; });
 }
 
-// --- Draw helpers ---
-function drawBackground() {
-  const cycle = Math.sin(frame * 0.002) * 0.5 + 0.5;
-  ctx.fillStyle = `rgb(${Math.floor(32 + cycle*25)},${Math.floor(24 + cycle*20)},${Math.floor(60 + cycle*45)})`;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = COLORS.yellowSoft;
-  stars.forEach(s => ctx.fillRect(Math.round(s.x), Math.round(s.y), 2, 2));
-
-  ctx.fillStyle = "rgba(200,210,255,0.35)";
-  bubbles.forEach(b => ctx.fillRect(Math.round(b.x), Math.round(b.y), b.r, b.r));
+function drawBackground(){
+  const cycle=Math.sin(frame*0.002)*0.5+0.5;
+  ctx.fillStyle=`rgb(${Math.floor(32+cycle*25)},${Math.floor(24+cycle*20)},${Math.floor(60+cycle*45)})`;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle=COLORS.yellowSoft; stars.forEach(s=>ctx.fillRect(s.x,s.y,2,2));
+  ctx.fillStyle="rgba(200,210,255,0.5)"; bubbles.forEach(b=>ctx.fillRect(b.x,b.y,b.size,b.size));
 }
 
-function drawCoral(pipe, y, h, flip) {
-  const sway = Math.sin(frame * 0.02 + pipe.swaySeed) * 4;
-  const x = pipe.x + sway * flip;
-
-  ctx.fillStyle = COLORS.redCoral;
-  ctx.fillRect(x, y, pipeWidth, h);
-
-  for (let i = 0; i < h; i += 18) {
-    ctx.fillRect(x - 6, y + i, 6, 12);
-    ctx.fillRect(x + pipeWidth, y + i + 7, 6, 12);
-  }
-
-  ctx.fillStyle = COLORS.redCoralDark;
-  ctx.fillRect(x + pipeWidth - 6, y, 6, h);
-
-  ctx.fillStyle = COLORS.yellowSoft;
-  pipe.polyps.forEach((p, i) => {
-    if (Math.sin(frame * 0.05 + p * 10) > 0.6) {
-      const px = x + (i * 9) % (pipeWidth - 2);
-      const py = y + (i * 33) % Math.max(1, h - 2);
-      ctx.fillRect(px, py, 2, 2);
-    }
-  });
-}
-
-function drawPipes() {
-  pipes.forEach(p => {
-    drawCoral(p, 0, p.top, 1);
-    drawCoral(p, p.bottom, canvas.height - p.bottom, -1);
-  });
-}
-
-function drawGhost() {
-  if (gameState === "playing" && ghostPath.length > frame) {
-    drawPixelShark(shark.x, ghostPath[frame].y, 0.18);
-  }
-}
-
-// Detailed main shark (blue/yellow)
 function drawPixelShark(x, y, a = 1) {
   ctx.save();
   ctx.globalAlpha = a;
 
-  // shadow
+  // Detailed pixel shark (~40x22). Anchored at x,y (top-left).
+  // Subtle outline for contrast
   ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(x - 6, y + 26, 46, 3);
+  ctx.fillRect(x - 2, y + 18, 44, 2);
 
-  // back ridge
+  // Back ridge (dark)
   ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x + 6, y + 10, 34, 14);
-  ctx.fillRect(x + 16, y + 4, 18, 6);
+  ctx.fillRect(x + 4, y + 6, 32, 10);
+  ctx.fillRect(x + 14, y + 2, 18, 4);
 
-  // body mid
+  // Mid body
   ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x + 8, y + 12, 34, 12);
-  ctx.fillRect(x + 18, y + 6, 16, 6);
+  ctx.fillRect(x + 6, y + 8, 30, 8);
+  ctx.fillRect(x + 16, y + 4, 16, 4);
 
-  // highlight
+  // Light highlight (top)
   ctx.fillStyle = COLORS.sharkLight;
-  ctx.fillRect(x + 12, y + 12, 18, 4);
-  ctx.fillRect(x + 24, y + 16, 12, 3);
+  ctx.fillRect(x + 10, y + 8, 18, 3);
+  ctx.fillRect(x + 20, y + 11, 10, 2);
 
-  // belly
+  // Belly
   ctx.fillStyle = COLORS.sharkBelly;
-  ctx.fillRect(x + 18, y + 22, 18, 6);
+  ctx.fillRect(x + 14, y + 14, 18, 4);
 
-  // yellow stripe accent
-  ctx.fillStyle = COLORS.sharkStripe;
-  ctx.fillRect(x + 14, y + 18, 10, 2);
+  // Yellow accent stripe (cute but still "real")
+  ctx.fillStyle = COLORS.sharkAccent;
+  ctx.fillRect(x + 16, y + 13, 12, 1);
+  ctx.fillRect(x + 18, y + 15, 10, 1);
 
-  // fin
+  // Fin (top)
   ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x + 26, y - 4, 8, 10);
+  ctx.fillRect(x + 22, y - 4, 8, 8);
   ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x + 27, y - 3, 6, 8);
+  ctx.fillRect(x + 23, y - 3, 6, 6);
 
-  // tail
+  // Tail
   ctx.fillStyle = COLORS.sharkMid;
-  ctx.fillRect(x - 10, y + 16, 14, 10);
+  ctx.fillRect(x - 6, y + 10, 10, 8);
   ctx.fillStyle = COLORS.sharkDark;
-  ctx.fillRect(x - 16, y + 14, 6, 6);
+  ctx.fillRect(x - 10, y + 8, 4, 4);
+  ctx.fillRect(x - 12, y + 12, 2, 3);
 
-  // eye
+  // Eye
   ctx.fillStyle = "#000";
-  ctx.fillRect(x + 36, y + 16, 3, 3);
+  ctx.fillRect(x + 34, y + 11, 2, 2);
   ctx.fillStyle = "#fff";
-  ctx.fillRect(x + 37, y + 16, 1, 1);
+  ctx.fillRect(x + 35, y + 11, 1, 1);
 
   ctx.restore();
 }
 
-function drawText() {
-  ctx.textAlign = "center";
 
-  if (gameState === "start") {
-    drawBackground();
-    ctx.font = "22px 'Press Start 2P'";
-    ctx.fillStyle = COLORS.yellowSoft;
-    ctx.fillText("FLAPPY SHARK", canvas.width/2, canvas.height*0.30);
-
-    ctx.font = "12px 'Press Start 2P'";
-    ctx.fillStyle = COLORS.purpleMain;
-    ctx.fillText("PRESS SPACE", canvas.width/2, canvas.height*0.38);
-
-    if (DEV_MODE) {
-      ctx.fillStyle = COLORS.white;
-      ctx.font = "10px 'Press Start 2P'";
-      ctx.fillText("DEV: B=VAL C=CELE K=KISS F=FINAL", canvas.width/2, canvas.height*0.44);
+function drawCoral(p,y,height,flip=1){
+  const sway=Math.sin(frame*0.02+p.swaySeed)*3;
+  const x=p.x+sway*flip;
+  ctx.fillStyle=COLORS.redCoral; ctx.fillRect(x,y,pipeWidth,height);
+  for(let i=0;i<height;i+=16){ ctx.fillRect(x-4,y+i,4,10); ctx.fillRect(x+pipeWidth,y+i+6,4,10); }
+  ctx.fillStyle=COLORS.redCoralDark; ctx.fillRect(x+pipeWidth-4,y,4,height);
+  ctx.fillStyle=COLORS.yellowSoft;
+  p.polyps.forEach((pp,i)=>{
+    if(Math.sin(frame*0.05+pp*10)>0.6){
+      const px=x+(i*7)%(pipeWidth-2);
+      const py=y+(i*29)%Math.max(1,height-2);
+      ctx.fillRect(px,py,2,2);
     }
-  }
+  });
+}
 
-  if (gameState === "playing") {
-    ctx.font = "22px 'Press Start 2P'";
-    ctx.fillStyle = COLORS.yellowGold;
-    ctx.fillText(String(score), canvas.width/2, 80);
-  }
+function drawPipes(){ pipes.forEach(p=>{ drawCoral(p,0,p.top,1); drawCoral(p,p.bottom,canvas.height-p.bottom,-1); }); }
 
-  if (gameState === "gameover") {
-    ctx.font = "22px 'Press Start 2P'";
-    ctx.fillStyle = COLORS.purpleMain;
-    ctx.fillText("AGAIN?", canvas.width/2, canvas.height/2);
-
-    ctx.font = "12px 'Press Start 2P'";
-    ctx.fillStyle = COLORS.yellowSoft;
-    ctx.fillText("PRESS SPACE", canvas.width/2, canvas.height/2 + 48);
-  }
-
-  if (gameState === "freeze") {
-    ctx.font = "12px 'Press Start 2P'";
-    ctx.fillStyle = COLORS.white;
-    ctx.fillText("IF YOU CAN OUTSWIM", canvas.width/2, canvas.height*0.30);
-    ctx.fillText("YOUR PAST,", canvas.width/2, canvas.height*0.34);
-    ctx.fillStyle = COLORS.yellowSoft;
-    ctx.fillText("IMAGINE WHAT WE", canvas.width/2, canvas.height*0.40);
-    ctx.fillStyle = COLORS.white;
-    ctx.fillText("CAN BUILD TOGETHER", canvas.width/2, canvas.height*0.44);
+function drawGhost(){
+  if(gameState==="playing" && ghostPath.length>frame){
+    drawPixelShark(shark.x, ghostPath[frame].y, 0.22);
   }
 }
 
-// --- Main draw ---
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Cutscenes: let Valentine module handle full-screen drawing
-  if (gameState === "valentine" || gameState === "celebrate" || gameState === "kiss" || gameState === "final") {
-    try {
-      if (gameState === "valentine") {
-        Valentine.drawValentine({ ctx, canvas, COLORS, frame, getButtons: getValentineButtons, drawSparkles });
-      } else if (gameState === "celebrate") {
-        const done = Valentine.drawCelebrate({ ctx, canvas, COLORS, frame, drawSparkles, spawnSparkles });
-        if (done) enterKiss();
-      } else if (gameState === "kiss") {
-        const done = Valentine.drawKiss({ ctx, canvas, COLORS, frame, drawSparkles, spawnSparkles });
-        if (done) enterFinal();
-      } else if (gameState === "final") {
-        Valentine.drawFinal({ ctx, canvas, COLORS, frame, drawSparkles });
-      }
-    } catch (err) {
-      // fail safe (won't brick on GitHub Pages)
-      ctx.fillStyle = COLORS.bg;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.textAlign = "center";
-      ctx.fillStyle = COLORS.yellowSoft;
-      ctx.font = "14px 'Press Start 2P'";
-      ctx.fillText("SCENE ERROR", canvas.width/2, canvas.height/2 - 30);
-      ctx.font = "10px 'Press Start 2P'";
-      ctx.fillText(String(err && err.message ? err.message : err), canvas.width/2, canvas.height/2 + 10);
-      ctx.fillText("PRESS SPACE", canvas.width/2, canvas.height/2 + 50);
-      if (DEV_MODE) console.error(err);
+function drawText(){
+  ctx.textAlign="center";
+  if(gameState==="start"){
+    ctx.font="20px 'Press Start 2P'"; ctx.fillStyle=COLORS.purpleMain; ctx.fillText("FLAPPY SHARK", canvas.width/2, 220);
+    ctx.font="12px 'Press Start 2P'"; ctx.fillStyle=COLORS.yellowSoft; ctx.fillText("IT REMEMBERS YOU", canvas.width/2, 300);
+    ctx.fillText("PRESS SPACE", canvas.width/2, 340);
+    if(DEV_MODE){
+      ctx.font="10px 'Press Start 2P'"; ctx.fillStyle=COLORS.pinkSparkleLight;
+      ctx.fillText("DEV: B=valentine  C=celebrate  K=kiss", canvas.width/2, 420);
     }
-    return;
   }
+  if(gameState==="playing"){
+    ctx.font="18px 'Press Start 2P'"; ctx.fillStyle=COLORS.yellowGold; ctx.fillText(score, canvas.width/2, 70);
+  }
+  if(gameState==="gameover"){
+    ctx.font="18px 'Press Start 2P'"; ctx.fillStyle=COLORS.purpleMain; ctx.fillText("AGAIN?", canvas.width/2, canvas.height/2);
+    ctx.font="12px 'Press Start 2P'"; ctx.fillStyle=COLORS.yellowSoft; ctx.fillText("PRESS SPACE", canvas.width/2, canvas.height/2+40);
+  }
+  if(gameState==="freeze"){
+    ctx.font="12px 'Press Start 2P'"; ctx.fillStyle="#fff";
+    ctx.fillText("IF YOU CAN OUTSWIM", canvas.width/2, 260);
+    ctx.fillText("YOUR PAST,", canvas.width/2, 290);
+    ctx.fillStyle=COLORS.yellowSoft; ctx.fillText("IMAGINE WHAT WE", canvas.width/2, 330);
+    ctx.fillStyle="#fff"; ctx.fillText("CAN BUILD TOGETHER", canvas.width/2, 360);
+  }
+}
 
-  // Normal world draw
+function spawnSparkles(x,y,color=COLORS.yellowSoft,count=24){
+  for(let i=0;i<count;i++){
+    sparkles.push({x,y,vx:(Math.random()-0.5)*6,vy:(Math.random()-0.7)*6,life:40,color});
+  }
+}
+function drawSparkles(){
+  sparkles.forEach(s=>{ ctx.fillStyle=s.color||COLORS.yellowSoft; ctx.fillRect(s.x,s.y,2,2); });
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
   ctx.save();
-  if (gameState === "transition") ctx.translate(0, -transitionOffset);
+  if(gameState==="transition") ctx.translate(0,-transitionOffset);
 
-  drawBackground();
-  drawPipes();
-  drawGhost();
-  drawPixelShark(shark.x, shark.y);
+  drawBackground(); drawPipes(); drawGhost(); drawPixelShark(shark.x, shark.y); drawText();
 
-  drawText();
   ctx.restore();
 
-  if (gameState === "transition") {
-    ctx.fillStyle = `rgba(26,20,41,${fadeAlpha})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if(gameState==="transition"){
+    ctx.fillStyle=`rgba(26,20,41,${fadeAlpha})`;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  if(gameState==="valentine"){
+    Valentine.drawValentine({ctx,canvas,COLORS,frame,getButtons:getValentineButtons,drawSparkles});
+  }else if(gameState==="celebrate"){
+    const done=Valentine.drawCelebrate({ctx,canvas,COLORS,frame,drawSparkles,spawnSparkles});
+    if(done) enterKiss();
+  }else if(gameState==="kiss"){
+    const done=Valentine.drawKiss({ctx,canvas,COLORS,frame,drawSparkles,spawnSparkles});
+    if(done) enterFinal();
+  }else if(gameState==="final"){
+    Valentine.drawFinal({ctx,canvas,COLORS,frame,drawSparkles});
   }
 
   drawSparkles();
 }
 
-// --- Loop ---
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
 loop();
