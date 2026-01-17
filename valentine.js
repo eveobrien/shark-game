@@ -21,7 +21,8 @@
   Valentine.drawValentine=({ctx,canvas,COLORS,frame,getButtons,drawSparkles})=>{
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    // bubble-only hearts in kiss scene
+    floatingHearts(ctx, COLORS, frame, canvas);
+
     tinySharks(ctx, COLORS, frame);
 
     const cx=canvas.width/2;
