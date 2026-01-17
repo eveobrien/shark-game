@@ -21,9 +21,8 @@
   Valentine.drawValentine=({ctx,canvas,COLORS,frame,getButtons,drawSparkles})=>{
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx, COLORS, frame, canvas);
-
-    tinySharks(ctx, COLORS, frame);
+    floatingHearts(ctx,COLORS,frame);
+    tinySharks(ctx,COLORS,frame);
 
     const cx=canvas.width/2;
     ctx.textAlign="center";
@@ -49,8 +48,8 @@
     celebrateT++;
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    floatingHearts(ctx, COLORS, frame, canvas);
-    tinySharks(ctx, COLORS, frame);
+    floatingHearts(ctx,COLORS,frame);
+    tinySharks(ctx,COLORS,frame);
 
     const floorY=canvas.height*0.85;
     bigWhites.forEach(s=>{
@@ -79,7 +78,7 @@
     kissT++;
     bg(ctx,canvas,COLORS);
     twinkles(ctx,COLORS,frame);
-    // Bubble-only hearts in kiss scene (no background hearts)
+    floatingHearts(ctx,COLORS,frame);
 
     const cx=canvas.width/2, y=canvas.height*0.55;
     const t=Math.min(1, kissT/180);
@@ -111,72 +110,55 @@
     return kissT>360;
   };
 
+  
   function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = text.split(/\s+/);
-  let line = "";
-
-  for (let n = 0; n < words.length; n++) {
-    const testLine = line + words[n] + " ";
-    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
-      ctx.fillText(line.trim(), x, y);
-      line = words[n] + " ";
-      y += lineHeight;
-    } else {
-      line = testLine;
+    const words = text.split(/\s+/);
+    let line = "";
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + " ";
+      if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+        ctx.fillText(line.trim(), x, y);
+        line = words[n] + " ";
+        y += lineHeight;
+      } else {
+        line = testLine;
+      }
     }
+    if (line.trim()) ctx.fillText(line.trim(), x, y);
   }
-  if (line.trim()) ctx.fillText(line.trim(), x, y);
-}
 
+Valentine.drawFinal=({ctx,canvas,COLORS,frame,drawSparkles})=>{
+    finalT++;
+    bg(ctx,canvas,COLORS);
+    twinkles(ctx,COLORS,frame);
+    floatingHearts(ctx, COLORS, frame);
+    tinySharks(ctx, COLORS, frame);
 
-  Valentine.drawFinal = ({ ctx, canvas, COLORS, frame, drawSparkles }) => {
-  finalT++;
+    const cx=canvas.width/2;
 
-  bg(ctx, canvas, COLORS);
-  twinkles(ctx, COLORS, frame);
-  floatingHearts(ctx, COLORS, frame, canvas);
-  tinySharks(ctx, COLORS, frame);
+    ctx.textAlign="center";
+    ctx.fillStyle=COLORS.yellowSoft;
+    ctx.font="22px 'Press Start 2P'";
+    ctx.fillText("CATHERINE 💜", cx, canvas.height*0.16);
 
-  const cx = canvas.width / 2;
+    const paragraph="Catherine — I love you so much. I care about you deeply, and I like you and fancy you in the most ridiculous way. Every day with you feels brighter, and being close to you feels like home. I really believe we’re soulmates, and I can’t wait to spend forever with you.";
 
-  // Title
-  ctx.textAlign = "center";
-  ctx.fillStyle = COLORS.yellowSoft;
-  ctx.font = "22px 'Press Start 2P'";
-  ctx.fillText("HAPPY VALENTINE'S", cx, canvas.height * 0.18);
+    ctx.font="14px 'Press Start 2P'";
+    const maxW=Math.min(640, canvas.width*0.82);
+    const textY=canvas.height*0.28;
 
-  ctx.fillStyle = COLORS.purpleMain;
-  ctx.font = "26px 'Press Start 2P'";
-  ctx.fillText("CATHERINE 💜", cx, canvas.height * 0.24);
+    ctx.fillStyle="rgba(0,0,0,0.25)";
+    ctx.fillRect(Math.round(cx-maxW/2)-18, Math.round(textY)-30, Math.round(maxW)+36, 250);
 
-  // Paragraph (wrapped)
-  const paragraph =
-    "Catherine — I love you so much. I care about you deeply, and I like you and fancy you in the most ridiculous way. Every day with you feels brighter, and being close to you feels like home. I really believe we’re soulmates, and I can’t wait to build a life with you — choosing you, again and again, forever.";
+    ctx.fillStyle=COLORS.white;
+    wrapText(ctx, paragraph, cx, textY, maxW, 26);
 
-  ctx.font = "14px 'Press Start 2P'";
-  const maxW = Math.min(640, canvas.width * 0.80);
-  const textY = canvas.height * 0.34;
+    ctx.fillStyle=COLORS.pinkSparkleLight;
+    ctx.font="12px 'Press Start 2P'";
+    ctx.fillText("(click to return)", cx, canvas.height*0.88);
 
-  // Readability panel
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.fillRect(
-    Math.round(cx - maxW / 2) - 18,
-    Math.round(textY) - 30,
-    Math.round(maxW) + 36,
-    260
-  );
-
-  ctx.fillStyle = COLORS.white;
-  wrapText(ctx, paragraph, cx, textY, maxW, 26);
-
-  // Footer
-  ctx.fillStyle = COLORS.heartLight || COLORS.yellowSoft;
-  ctx.font = "12px 'Press Start 2P'";
-  ctx.fillText("(click to return)", cx, canvas.height * 0.88);
-
-  drawSparkles(COLORS.pinkSparkleLight);
-};
-
+    drawSparkles(COLORS.pinkSparkleLight);
+  };
 
   // ===== particles =====
   function initParticles(canvas){
@@ -222,12 +204,12 @@
     });
   }
 
-  function floatingHearts(ctx, C, frame, canvas) {
-    vHearts.forEach(h => {
-      drawTinyHeart(ctx, h.x, h.y, h.size, frame, h.seed || 0, canvas);
+  function floatingHearts(ctx,C,frame){
+    vHearts.forEach(h=>{
+      const pulse=Math.sin(frame*h.tw+h.phase)>0.4;
+      drawTinyHeart(ctx,h.x,h.y,h.size,pulse?C.yellowSoft:C.yellowGold);
     });
   }
-
 
   function tinySharks(ctx,C,frame){
     vSharks.forEach(s=>{
